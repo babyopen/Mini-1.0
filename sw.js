@@ -1,5 +1,5 @@
 /* sw.js · 应用外壳缓存：首屏离线可用，配置改动后改 CACHE 版本号即可换新 */
-const CACHE = 'liquidglass-v1.7.5';
+const CACHE = 'liquidglass-v1.7.6';
 const ASSETS = [
   './',
   './index.html',
@@ -79,11 +79,24 @@ self.addEventListener('fetch', function(e){
   const req = e.request;
   if(req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
 
-  /* 页面导航：优先网络，断网回落到缓存中的 index */
+  /* 页面导航：缓存优先即时打开，后台静默更新最新外壳；无缓存时才等待网络 */
   if(req.mode === 'navigate'){
-    e.respondWith(
-      fetch(req).catch(function(){ return caches.match('./index.html'); })
-    );
+    e.respondWith((async function(){
+      const cached = await caches.match('./index.html');
+      const network = fetch(req).then(function(res){
+        if(res && res.ok){
+          const copy = res.clone();
+          caches.open(CACHE).then(function(c){ c.put('./index.html', copy); });
+        }
+        return res;
+      });
+      if(cached){
+        network.catch(function(){});
+        return cached;
+      }
+      try { return await network; }
+      catch(err){ return caches.match('./index.html'); }
+    })());
     return;
   }
   e.respondWith(

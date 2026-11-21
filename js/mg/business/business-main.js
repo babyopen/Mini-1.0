@@ -570,6 +570,57 @@ const Business = {
 
   // ====================== 分析页面相关 ======================
   /**
+   * 取消待处理的分析视图渲染
+   */
+  cancelAnalysisRender: () => {
+    Business._analysisRenderPending = false;
+    if(Business._analysisRenderTimer){
+      if(typeof cancelIdleCallback === 'function'){
+        try { cancelIdleCallback(Business._analysisRenderTimer); } catch(e){}
+      }
+      clearTimeout(Business._analysisRenderTimer);
+      Business._analysisRenderTimer = null;
+    }
+  },
+
+  /**
+   * 调度非首屏分析视图渲染（空闲时执行，避免阻塞首屏）
+   */
+  scheduleAnalysisRender: () => {
+    Business._analysisRenderPending = true;
+    if(Business._analysisRenderTimer) return;
+    const run = function(){
+      Business._analysisRenderTimer = null;
+      Business.flushAnalysisRender();
+    };
+    if(typeof requestIdleCallback === 'function'){
+      Business._analysisRenderTimer = requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      Business._analysisRenderTimer = setTimeout(run, 300);
+    }
+  },
+
+  /**
+   * 立即执行待处理的分析视图渲染（进入分析/生肖页时调用，避免空白）
+   */
+  flushAnalysisRender: () => {
+    if(!Business._analysisRenderPending) return;
+    Business.cancelAnalysisRender();
+    const data = StateManager._state.analysis.historyData;
+    if(!data || !data.length) return;
+    Business.renderLatest(data[0]);
+    Business.renderHistory();
+    Business.renderFullAnalysis();
+    Business.renderZodiacAnalysis();
+    Business.renderZodiacPrediction();
+    Business.initZodiacBacktest();
+    Business.initGiongTab();
+    ViewAnalysis.updateLoadMoreBtn(
+      data.length > StateManager._state.analysis.showCount
+    );
+  },
+
+  /**
    * 加载历史记录缓存
    */
   loadHistoryCache: () => {
@@ -584,16 +635,7 @@ const Business = {
         historyTimestamp: cache.timestamp || 0
       };
       StateManager.setState({ analysis: newAnalysis }, false);
-      Business.renderLatest(cache.data[0]);
-      Business.renderHistory();
-      Business.renderFullAnalysis();
-      Business.renderZodiacAnalysis();
-      Business.renderZodiacPrediction();
-      Business.initZodiacBacktest();
-      Business.initGiongTab();
-      ViewAnalysis.updateLoadMoreBtn(
-        StateManager._state.analysis.historyData.length > StateManager._state.analysis.showCount
-      );
+      Business.scheduleAnalysisRender();
     }
   },
 
@@ -602,6 +644,7 @@ const Business = {
    */
   initAnalysisPage: () => {
     Business.loadHistoryCache();
+    Business.flushAnalysisRender();
     const state = StateManager._state;
     if(state.analysis.historyData.length === 0) {
       Business.refreshHistory();
@@ -656,6 +699,7 @@ const Business = {
           historyTimestamp: now
         };
         StateManager.setState({ analysis: newAnalysis }, false);
+        Business.cancelAnalysisRender();
         Business.renderZodiacPrediction();
         Business.initZodiacBacktest();
         Business.initGiongTab();
@@ -672,6 +716,7 @@ const Business = {
           historyTimestamp: cache.timestamp || 0
         };
         StateManager.setState({ analysis: newAnalysis }, false);
+        Business.cancelAnalysisRender();
         Business.renderZodiacPrediction();
         Business.initZodiacBacktest();
         Business.initGiongTab();
@@ -688,6 +733,7 @@ const Business = {
       if(cacheLatestExpect > currentLatestExpect) {
         const newAnalysis = { ...state.analysis, historyData: cache.data };
         StateManager.setState({ analysis: newAnalysis }, false);
+        Business.cancelAnalysisRender();
         Business.renderZodiacPrediction();
         Business.initZodiacBacktest();
         Business.initGiongTab();
@@ -1604,6 +1650,7 @@ const Business = {
    * 初始化主推标签页（滑动窗口预测算法）
    */
   initMainTab: () => {
+    Business.flushAnalysisRender();
     var state = StateManager._state;
     var historyData = state.analysis.historyData;
     var cacheTimestamp = state.analysis.historyTimestamp || 0;
