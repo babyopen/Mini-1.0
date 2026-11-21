@@ -1,0 +1,399 @@
+const Storage = {
+  /**
+   * 存储key常量
+   * @readonly
+   * @enum {string}
+   */
+  KEYS: Object.freeze({
+    SAVED_FILTERS: 'savedFilters',
+    DATA_VERSION: 'dataVersion',
+    HISTORY_DATA: 'historyData',
+    HISTORY_TIMESTAMP: 'historyTimestamp',
+    ZODIAC_BACKTEST: 'zodiacBacktest',
+    MARK_HINT_SHOWN: 'markHintShown',
+    // 用户偏好（区域变动追踪卡片展开状态）
+    ZONE_CHANGE_EXPANDED: 'zoneChangeExpanded',
+    // 用户偏好（多窗口组合统计 grid 折叠状态，2026-06-16 新增）
+    ZONE_CHANGE_COMBO_STATS_COLLAPSED: 'zoneChangeComboStatsCollapsed',
+    // 用户偏好（主推面板"详细评分"表格展开状态）
+    SCORE_TABLE_EXPANDED: 'scoreTableExpanded',
+    // 当前主页临时筛选状态（新增：用于后台返回/页面刷新后恢复未保存的筛选）
+    CURRENT_FILTER: 'currentFilter',
+    // 筛选方案分组（完整快照）与当前激活分组
+    FILTER_GROUPS: 'filterGroups',
+    CURRENT_GROUP_ID: 'currentGroupId'
+    // 注：页面子标签记忆（profile/analysis/random）改由 TAB_MEMORY 配置表管理，见下方
+  }),
+
+  /**
+   * 内存兜底存储（隐私模式下localStorage不可用时使用）
+   * @private
+   */
+  _memoryStorage: {},
+
+  /**
+   * localStorage可用性缓存，避免重复检测
+   * @private
+   */
+  _storageAvailable: null,
+
+  /**
+   * 检测localStorage是否可用
+   * @returns {boolean} 是否可用
+   */
+  isLocalStorageAvailable: () => {
+    if(Storage._storageAvailable !== null) return Storage._storageAvailable;
+    try {
+      const testKey = '__test__';
+      localStorage.setItem(testKey, testKey);
+      localStorage.removeItem(testKey);
+      Storage._storageAvailable = true;
+      return true;
+    } catch(e) {
+      Storage._storageAvailable = false;
+      return false;
+    }
+  },
+
+  /**
+   * 获取存储数据
+   * @param {string} key - 存储key
+   * @param {any} defaultValue - 默认值
+   * @returns {any} 存储的值
+   */
+  get: (key, defaultValue = null) => {
+    try {
+      if(Storage.isLocalStorageAvailable()){
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value) : defaultValue;
+      } else {
+        return Storage._memoryStorage[key] || defaultValue;
+      }
+    } catch(e) {
+      console.error('存储读取失败', e);
+      return defaultValue;
+    }
+  },
+
+  /**
+   * 写入存储数据
+   * @param {string} key - 存储key
+   * @param {any} value - 要存储的值
+   * @returns {boolean} 是否成功
+   */
+  set: (key, value) => {
+    try {
+      const serialized = JSON.stringify(value);
+      if(Storage.isLocalStorageAvailable()){
+        localStorage.setItem(key, serialized);
+      } else {
+        Storage._memoryStorage[key] = value;
+      }
+      return true;
+    } catch(e) {
+      console.error('存储写入失败', e);
+      Toast.show('保存失败，存储空间可能已满');
+      return false;
+    }
+  },
+
+  /**
+   * 移除存储数据
+   * @param {string} key - 存储key
+   * @returns {boolean} 是否成功
+   */
+  remove: (key) => {
+    try {
+      if(Storage.isLocalStorageAvailable()){
+        localStorage.removeItem(key);
+      } else {
+        delete Storage._memoryStorage[key];
+      }
+      return true;
+    } catch(e) {
+      console.error('存储移除失败', e);
+      return false;
+    }
+  },
+
+  /**
+   * 加载并校验保存的方案
+   * @returns {Array} 合法的方案列表
+   */
+  loadSavedFilters: () => {
+    // 数据版本校验
+    const savedVersion = Storage.get(Storage.KEYS.DATA_VERSION, 0);
+    if(savedVersion < CONFIG.DATA_VERSION){
+      // 后续可添加数据迁移逻辑
+      Storage.set(Storage.KEYS.DATA_VERSION, CONFIG.DATA_VERSION);
+    }
+
+    const rawList = Storage.get(Storage.KEYS.SAVED_FILTERS, []);
+    const validList = Array.isArray(rawList) ? rawList.filter(Utils.validateFilterItem) : [];
+    StateManager.setState({ savedFilters: validList }, false);
+    return validList;
+  },
+
+  /**
+   * 保存方案到本地
+   * @param {Object} filterItem - 方案对象
+   * @returns {boolean} 是否成功
+   */
+  saveFilter: (filterItem) => {
+    const state = StateManager._state;
+    const newList = [filterItem, ...state.savedFilters];
+    const success = Storage.set(Storage.KEYS.SAVED_FILTERS, newList);
+    if(success) StateManager.setState({ savedFilters: newList });
+    return success;
+  },
+
+  /**
+   * 获取缓存的历史数据
+   * @returns {Object|null} { data: Array, timestamp: number }
+   */
+  getHistoryCache: () => {
+    const data = Storage.get(Storage.KEYS.HISTORY_DATA, null);
+    const timestamp = Storage.get(Storage.KEYS.HISTORY_TIMESTAMP, 0);
+    if(data && Array.isArray(data) && data.length > 0) {
+      return { data, timestamp };
+    }
+    return null;
+  },
+
+  /**
+   * 保存历史数据到缓存
+   * @param {Array} data - 历史数据数组
+   */
+  saveHistoryCache: (data) => {
+    Storage.set(Storage.KEYS.HISTORY_DATA, data);
+    Storage.set(Storage.KEYS.HISTORY_TIMESTAMP, Date.now());
+  },
+
+  /**
+   * 获取区域变动追踪卡片的展开状态
+   * @returns {boolean} 是否展开
+   */
+  getZoneChangeExpanded: () => {
+    return Storage.get(Storage.KEYS.ZONE_CHANGE_EXPANDED, false);
+  },
+
+  /**
+   * 保存区域变动追踪卡片的展开状态
+   * @param {boolean} expanded - 是否展开
+   */
+  saveZoneChangeExpanded: (expanded) => {
+    return Storage.set(Storage.KEYS.ZONE_CHANGE_EXPANDED, !!expanded);
+  },
+
+  /**
+   * 获取多窗口组合统计 grid 的折叠状态（2026-06-16 新增）
+   * @returns {boolean} 是否折叠（默认 true：折叠，2026-06-16 调整）
+   */
+  getComboStatsCollapsed: () => {
+    return Storage.get(Storage.KEYS.ZONE_CHANGE_COMBO_STATS_COLLAPSED, true);
+  },
+
+  /**
+   * 保存多窗口组合统计 grid 的折叠状态（2026-06-16 新增）
+   * @param {boolean} collapsed - 是否折叠
+   */
+  saveComboStatsCollapsed: (collapsed) => {
+    return Storage.set(Storage.KEYS.ZONE_CHANGE_COMBO_STATS_COLLAPSED, !!collapsed);
+  },
+
+  /**
+   * 获取主推面板"详细评分"表格的展开状态
+   * @returns {boolean} 是否展开（默认 false：折叠）
+   */
+  getScoreTableExpanded: () => {
+    return Storage.get(Storage.KEYS.SCORE_TABLE_EXPANDED, false);
+  },
+
+  /**
+   * 保存主推面板"详细评分"表格的展开状态
+   * @param {boolean} expanded - 是否展开
+   */
+  saveScoreTableExpanded: (expanded) => {
+    return Storage.set(Storage.KEYS.SCORE_TABLE_EXPANDED, !!expanded);
+  },
+
+  // ============================================================
+  // 新增：当前主页临时筛选状态持久化（2026-06-07）
+  // 用途：解决"后台返回/页面刷新后丢失未保存的筛选"问题
+  // 设计：与 SAVED_FILTERS（已命名方案）相互独立，互不干扰
+  // ============================================================
+
+  /**
+   * 保存当前主页临时筛选状态到 localStorage
+   * @param {Object} payload - 包含 selected/excluded/locked/marked/markCount/excludeHistory 的对象
+   * @returns {boolean} 是否成功
+   */
+  saveCurrentFilter: (payload) => {
+    if(!payload || typeof payload !== 'object') return false;
+    // 只持久化白名单字段，避免写入临时定时器/分析状态
+    const safe = {
+      selected: payload.selected || {},
+      excluded: Array.isArray(payload.excluded) ? payload.excluded : [],
+      locked: payload.locked || {},
+      marked: payload.marked || {},
+      markCount: payload.markCount || {},
+      excludeHistory: Array.isArray(payload.excludeHistory) ? payload.excludeHistory : [],
+      lockExclude: !!payload.lockExclude,
+      showAllFilters: !!payload.showAllFilters,
+      _ts: Date.now()
+    };
+    return Storage.set(Storage.KEYS.CURRENT_FILTER, safe);
+  },
+
+  /**
+   * 加载并校验当前主页临时筛选状态
+   * @returns {Object|null} 合法的状态对象；无缓存/校验失败返回 null
+   */
+  loadCurrentFilter: () => {
+    const raw = Storage.get(Storage.KEYS.CURRENT_FILTER, null);
+    if(!raw || typeof raw !== 'object') return null;
+
+    // 7 天过期自动失效，避免历史脏数据长期生效
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    if(raw._ts && (Date.now() - raw._ts) > SEVEN_DAYS) {
+      Storage.remove(Storage.KEYS.CURRENT_FILTER);
+      return null;
+    }
+
+    // 字段校验
+    const safe = {
+      selected: (raw.selected && typeof raw.selected === 'object') ? raw.selected : {},
+      excluded: Array.isArray(raw.excluded) ? raw.excluded : [],
+      locked: (raw.locked && typeof raw.locked === 'object') ? raw.locked : {},
+      marked: (raw.marked && typeof raw.marked === 'object') ? raw.marked : {},
+      markCount: (raw.markCount && typeof raw.markCount === 'object') ? raw.markCount : {},
+      excludeHistory: Array.isArray(raw.excludeHistory) ? raw.excludeHistory : [],
+      lockExclude: !!raw.lockExclude,
+      showAllFilters: !!raw.showAllFilters,
+      _ts: raw._ts || Date.now()
+    };
+
+    // 兜底：selected 必须包含所有 group（缺失补空数组）
+    const expectedGroups = ['zodiac','color','colorsx','type','element','head','tail','sum','sumOdd','sumSize','tailSize','bs','hot','num'];
+    expectedGroups.forEach(g => {
+      if(!Array.isArray(safe.selected[g])) safe.selected[g] = [];
+    });
+
+    return safe;
+  },
+
+  // ============================================================
+  // 新增：页面离开时子标签记忆（2026-06-08）
+  // 用途：在『我的/广播/资料』页面切换到任意子标签后离开到其他页面，
+  //       再次回到时还原离开时的 tab；首次进入使用各页面默认
+  // 设计：TAB_MEMORY 配置驱动，新增页面只需添加配置项
+  // ============================================================
+  TAB_MEMORY: Object.freeze({
+    profile: {
+      key: 'profileLastTab',
+      default: 'mine',
+      valid: ['mine', 'official', 'phoenix', 'daxian']
+    },
+    analysis: {
+      key: 'analysisLastTab',
+      default: 'history',
+      valid: ['history', 'analysis', 'zodiac']
+    },
+    random: {
+      key: 'randomLastTab',
+      default: 'ultimate',
+      // 注意：『主推』(main) 是从快捷导航进入的（顶部 tab 栏未列出），但需要支持记忆
+      valid: ['main', 'ultimate', 'predict', 'giong']
+    }
+  }),
+
+  /**
+   * 已废弃的历史键（代码中已无任何读写路径）
+   * 说明：移除功能时同步追加到此列表，cleanupOrphanKeys 会自动清理用户浏览器中的残留数据
+   */
+  REMOVED_KEYS: Object.freeze([
+    'giongBacktestRecords', // 2026-11-07 移除 Giong 双链推荐引擎后废弃
+    'historyCache'          // 早期版本的历史缓存键，现统一使用 historyData
+  ]),
+
+  /**
+   * 清理 localStorage 中的废弃键
+   *
+   * 策略：
+   *   1. 移除 REMOVED_KEYS 中登记的废弃键（安全，已确认无读写路径）
+   *   2. 报告其它未登记的未知键，默认不删除（避免误删未登记的新键）
+   *
+   * @param {boolean} [aggressive=false] - true 时连同未知键一并删除
+   * @returns {{removed: string[], unknown: string[]}} removed=已删除的键；unknown=未登记的未知键
+   */
+  cleanupOrphanKeys: (aggressive = false) => {
+    const result = { removed: [], unknown: [] };
+    if (!Storage.isLocalStorageAvailable()) return result;
+
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) keys.push(k);
+      }
+
+      keys.forEach(key => {
+        if (Storage.REMOVED_KEYS.indexOf(key) >= 0) {
+          localStorage.removeItem(key);
+          result.removed.push(key);
+        } else if (aggressive) {
+          localStorage.removeItem(key);
+          result.removed.push(key);
+        } else if (Storage.ACTIVE_KEYS.indexOf(key) < 0) {
+          result.unknown.push(key);
+        }
+      });
+    } catch(e) {
+      console.error('存储清理失败', e);
+    }
+    return result;
+  },
+
+  /**
+   * 获取指定页面上次的子标签
+   * @param {string} pageName - profile / analysis / random
+   * @returns {string|null} 合法子标签；未配置返回 null
+   */
+  getLastTab: (pageName) => {
+    const conf = Storage.TAB_MEMORY[pageName];
+    if (!conf) return null;
+    const v = Storage.get(conf.key, conf.default);
+    return conf.valid.indexOf(v) >= 0 ? v : conf.default;
+  },
+
+  /**
+   * 保存指定页面当前子标签
+   * @param {string} pageName - profile / analysis / random
+   * @param {string} tab - 当前 tab
+   * @returns {boolean} 是否成功；未配置或非法值返回 false
+   */
+  saveLastTab: (pageName, tab) => {
+    const conf = Storage.TAB_MEMORY[pageName];
+    if (!conf) return false;
+    if (conf.valid.indexOf(tab) < 0) return false;
+    return Storage.set(conf.key, tab);
+  }
+};
+
+/**
+ * 活跃键集合（应用当前真实使用的全部 localStorage 键）
+ * 由 KEYS / TAB_MEMORY 自动汇总 + 业务层裸字符串键，避免手工维护漂移
+ */
+Storage.ACTIVE_KEYS = Object.freeze(
+  Object.keys(Storage.KEYS).map(k => Storage.KEYS[k])
+    .concat(Object.keys(Storage.TAB_MEMORY).map(k => Storage.TAB_MEMORY[k].key))
+    .concat([
+      // 业务层直接使用的裸字符串键
+      'zoneBacktest',
+      'zodiacStrategyTuned',
+      'ultimateAdaptive',
+      'ultimateCooling',
+      'ultimateBacktest',
+      'ultimateRecommendHistory'
+    ])
+);

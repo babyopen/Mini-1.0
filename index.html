@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<!--
+  DaoHang · 液态玻璃移动端 UI 模板（单文件版）v1.7.3
+  ================================================================
+  文件结构索引
+    style 区块（styles.css）
+      1  变量与深浅主题        2  通用玻璃容器（::after 噪点）
+      3  页面容器 .view        4  卡片 / 列表行
+      5  账户卡片 / 分组标题    6  分段控件 / 开关 / 滑块（中点标记）
+      7  导航胶囊与指示器       8  Toast
+      9  账户编辑 Sheet        10 按钮体系（.btn 全家桶）
+      11 搜索直达样式          12 通用组件（分割线/徽标/空态/列表项）
+      13  居中确认弹窗          14 分组折叠       15 系统减弱动效
+    body 区块
+      背景层 .wallpaper / .wall-dim
+      → 顶部结果区 #topBox（仅主页显示）
+      → 独立滚动容器 main#bodyBox
+          · 迁移视图：filter / analysis / random / profile
+          · 模板视图：settings / components / search
+      → 快捷导航 / 返回顶部 / nav.tabbar（4 项 + 设置胶囊）
+      → .toast / 弹窗宿主层
+    script 区块
+      A 常量与默认值（DEFAULT_CONF / DEFAULT_VARIANTS）
+      B 存储层（loadConf / saveConf / saveWall / 壁纸迁移）
+      C 主题与深浅两套变体（effectiveTheme / setMat / pullVariant）
+      D 壁纸（预设渐变 / 主色提取）
+      E 配置渲染（applyConfig / moveIndicator）
+      F 视图路由与导航
+      G 设置交互（滑块 / 开关 / 颜色 / 导出导入 / 重置）
+      G2 分组折叠 / 居中确认弹窗 / 显示模式快切 / 字体 / 分主题重置
+      G3 点击复制 / 左右滑动切页 / 组件库视图交互
+      H 账户模块（资料 / 头像 / Sheet 弹窗与手势）
+      I 设置项索引（搜索直达 / 双击单项重置）
+      K 初始化
+  ================================================================
+  开发规约
+    · 视图逻辑（渲染 / 排序 / 事件 / DOM）写在视图区块；
+      数据逻辑（存储 / 计算 / 校验）集中在 A–D，不在数据区块操作 DOM。
+    · 新增界面必须复用 --lg-* 变量与既有 class，不另写 backdrop-filter。
+    · 页面切换不加容器级 opacity 动画（会触发玻璃层逐帧重绘闪动）。
+    · 弹窗二选一：内容编辑用底部 Sheet，二次确认/输入用 confirmDialog。
+    · 新增设置项自动进搜索索引与双击重置；分组可在标题上折叠。
+    · 数值参数一律存「偏移量」：conf 里 0 = 默认外观，渲染必须经 eff(key)
+      取基准值再夹紧（BASE_VARIANTS / BASE_CONF + LIMIT），不要直接读 conf 数值。
+-->
+<html lang="zh-CN" style="background:#050508">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0b14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>筛选 · 液态导航</title>
+<script>
+  /* 首帧前把页面底色与状态栏颜色对齐主题，避免刘海/安全区先闪一块黑 */
+  (function(){
+    try{
+      var raw = localStorage.getItem('lgSettingsV4');
+      var c = raw ? JSON.parse(raw) : null;
+      var t = (c && c.theme) || 'dark';
+      var light = t === 'light' || (t === 'auto' && window.matchMedia &&
+                    window.matchMedia('(prefers-color-scheme: light)').matches);
+      var bg = light ? '#f8f9fd' : '#0b0b14';
+      document.documentElement.style.background = bg;
+      document.documentElement.setAttribute('data-theme-base', light ? 'light' : 'dark');
+      var m = document.createElement('meta');
+      m.name = 'theme-color'; m.content = bg;
+      document.head.appendChild(m);
+      var old = document.querySelector('meta[name="theme-color"]');
+      if(old) old.parentNode.removeChild(old);
+    }catch(e){}
+  })();
+</script>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="Liquid Glass">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+</head>
+<body>
+<svg class="icon-sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5.2 5.2L20 6.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 5.5v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="18" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><path d="M12 10.5v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="6.2" r="1.1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 16.5L21 21" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24"><path d="M7 4.5h10a1.5 1.5 0 011.5 1.5v14l-6.5-4-6.5 4V6A1.5 1.5 0 017 4.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check-all" viewBox="0 0 24 24"><path d="M4 12.5l4.2 4.2L16 9" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 16.7L18.8 9" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-invert" viewBox="0 0 24 24"><path d="M5 9a8 8 0 0113.5-3.5L21 8M19 15a8 8 0 01-13.5 3.5L3 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 4v4h-4M3 20v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 6.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7a2 2 0 002 2h.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 6v5h-5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 18v-5h5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.4 11A7 7 0 007 7.3L4 10M5.6 13A7 7 0 0017 16.7l3-2.7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19v-8.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-broadcast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M7.8 7.8a6 6 0 000 8.4M16.2 16.2a6 6 0 000-8.4M4.9 4.9a10 10 0 000 14.2M19.1 19.1a10 10 0 000-14.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-data" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.8 20c.7-3.6 3.7-5.6 7.2-5.6s6.5 2 7.2 5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M5 7h9M18 7h1M5 17h3M12 17h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-top" viewBox="0 0 24 24"><path d="M6 11l6-6 6 6M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+
+<div class="wallpaper" id="wallpaper"></div>
+<div class="wall-dim" id="wall-dim"></div>
+
+<!-- 顶部结果区（仅主页显示，固定在独立滚动容器之上） -->
+<div class="mg-top" id="topBox">
+  <div class="liquid-glass mg-top-card">
+    <div class="mg-top-head">
+      <div class="mg-top-meta">
+        <span class="mg-top-label">筛选结果</span>
+        <span class="mg-top-count"><b id="resultCount">0</b> 组</span>
+      </div>
+      <span class="mg-top-badge" id="resultBadge">MAX 2.0</span>
+    </div>
+    <div id="resultNums" class="result-nums" role="list" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- 独立滚动容器 -->
+<main class="body-box page-scroll" id="bodyBox">
+
+  <!-- ===== 迁移视图：主页（筛选） ===== -->
+  <section class="view active" data-view="filter" id="filterPage"></section>
+
+  <!-- ===== 迁移视图：广播（分析） ===== -->
+  <section class="view" data-view="analysis" id="analysisPage">
+    <div class="mg-page-head">
+      <h1>广播</h1>
+      <p>开奖结果与多维统计</p>
+    </div>
+
+    <div class="liquid-glass card mg-live-card">
+      <div class="mg-live-top">
+        <div>
+          <div class="mg-live-label">第 <b id="curExpect">--</b> 期开奖结果</div>
+          <div class="mg-live-sub">下期开奖 <span id="countdown">00:00:00</span></div>
+        </div>
+        <button class="btn icon sm ghost" data-action="refreshHistory" title="刷新历史" aria-label="刷新历史">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-refresh"/></svg>
+        </button>
+      </div>
+      <div class="mg-ball-row" id="latestBalls"></div>
+    </div>
+
+    <div class="segmented mg-tabs" role="tablist" aria-label="分析标签">
+      <span class="seg-thumb"></span>
+      <button class="seg-item analysis-tab-btn active" id="tabHistory" data-analysis-tab="history" role="tab">历史记录</button>
+      <button class="seg-item analysis-tab-btn" id="tabAnalysis" data-analysis-tab="analysis" role="tab">维度分析</button>
+      <button class="seg-item analysis-tab-btn" id="tabZodiac" data-analysis-tab="zodiac" role="tab">生肖关联</button>
+    </div>
+
+    <!-- 1. 历史记录 -->
+    <div class="mg-panel active" id="historyPanel">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>历史记录</h2>
+          <button class="btn sm secondary" data-action="refreshHistory">刷新历史</button>
+        </div>
+        <div class="mg-card-body history-list" id="historyList">加载中...</div>
+        <button class="btn secondary mg-block-btn" id="loadMore" data-action="loadMoreHistory" style="display:none;">点击加载更多</button>
+      </div>
+    </div>
+
+    <!-- 2. 全维度分析 -->
+    <div class="mg-panel" id="analysisPanelContent">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>特码全维度统计</h2></div>
+        <div class="mg-card-body">
+          <div class="mg-filter-bar">
+            <select id="analyzeSelect" class="select">
+              <option value="12" selected>最近12期</option>
+              <option value="24">最近24期</option>
+              <option value="36">最近36期</option>
+              <option value="all">全年数据</option>
+            </select>
+            <input type="number" id="customNum" class="input mg-input" placeholder="自定义期数">
+            <button class="btn sm primary" data-action="syncAnalyze">确认</button>
+          </div>
+
+          <div class="empty" id="emptyTip">暂无数据可分析</div>
+
+          <div id="hotWrap" style="display:none;">
+            <div class="mg-sub-title">热门结论</div>
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">核心形态</div><div class="mg-stat-value" id="hotShape">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">热门生肖</div><div class="mg-stat-value" id="hotZodiac">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">最热头/尾数</div><div class="mg-stat-value" id="hotHeadTail">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">波色/五行</div><div class="mg-stat-value" id="hotColorWx">--</div></div>
+              <div class="mg-stat-box wide"><div class="mg-stat-label">遗漏总结</div><div class="mg-stat-value" id="hotMiss">--</div></div>
+            </div>
+          </div>
+
+          <div class="mg-sub-title"><span>生肖统计</span><span class="badge">热门TOP</span></div>
+          <div class="mg-summary-row">
+            <span>热门生肖 → <span id="hotZodiac2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="zodiacDetail">展开详情</button>
+          </div>
+          <div class="mg-detail" id="zodiacDetail"><div id="zodiacRank" class="rank-box"></div></div>
+
+          <div class="mg-sub-title"><span>单双 &amp; 大小</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门 → <span id="hotShape2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail1">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail1">
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">单数</div><div class="mg-stat-value" id="odd">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">双数</div><div class="mg-stat-value" id="even">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">大(≥25)</div><div class="mg-stat-value" id="big">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">小(&lt;25)</div><div class="mg-stat-value" id="small">--</div></div>
+            </div>
+            <div id="singleDoubleRank" class="rank-box"></div>
+            <div id="bigSmallRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>区间统计</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门区间 → <span id="hotRange2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail2">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail2">
+            <div class="mg-stat-grid five">
+              <div class="mg-stat-box"><div class="mg-stat-label">1-9</div><div class="mg-stat-value" id="r1">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">10-19</div><div class="mg-stat-value" id="r2">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">20-29</div><div class="mg-stat-value" id="r3">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">30-39</div><div class="mg-stat-value" id="r4">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">40-49</div><div class="mg-stat-value" id="r5">--</div></div>
+            </div>
+            <div id="rangeRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>头数统计</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门头数 → <span id="hotHead2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail3">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail3">
+            <div class="mg-stat-grid five">
+              <div class="mg-stat-box"><div class="mg-stat-label">头0</div><div class="mg-stat-value" id="h0">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">头1</div><div class="mg-stat-value" id="h1">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">头2</div><div class="mg-stat-value" id="h2">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">头3</div><div class="mg-stat-value" id="h3">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">头4</div><div class="mg-stat-value" id="h4">--</div></div>
+            </div>
+            <div id="headRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>尾数统计</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门尾数 → <span id="hotTail2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail4">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail4">
+            <div class="mg-stat-grid five" id="tailRow"></div>
+            <div id="tailRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>波色统计</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门波色 → <span id="hotColor2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail5">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail5">
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">红波</div><div class="mg-stat-value" id="cRed">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">蓝波</div><div class="mg-stat-value" id="cBlue">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">绿波</div><div class="mg-stat-value" id="cGreen">--</div></div>
+            </div>
+            <div id="colorRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>五行统计</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门五行 → <span id="hotWuxing2" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail6">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail6">
+            <div class="mg-stat-grid five">
+              <div class="mg-stat-box"><div class="mg-stat-label">金</div><div class="mg-stat-value" id="wJin">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">木</div><div class="mg-stat-value" id="wMu">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">水</div><div class="mg-stat-value" id="wShui">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">火</div><div class="mg-stat-value" id="wHuo">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">土</div><div class="mg-stat-value" id="wTu">--</div></div>
+            </div>
+            <div id="wuxingRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>家禽 / 野兽</span><span class="badge">热门</span></div>
+          <div class="mg-summary-row">
+            <span>热门 → <span id="hotAnimal" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail7">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail7">
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">家禽</div><div class="mg-stat-value" id="aniHome">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">野兽</div><div class="mg-stat-value" id="aniWild">--</div></div>
+            </div>
+            <div id="animalRank" class="rank-box"></div>
+          </div>
+
+          <div class="mg-sub-title"><span>遗漏统计</span><span class="badge">公式版</span></div>
+          <div class="mg-summary-row">
+            <span>热号/温号/冷号 → <span id="hotColdTip" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail8">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail8">
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">当前最大遗漏</div><div class="mg-stat-value" id="missCur">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">平均遗漏</div><div class="mg-stat-value" id="missAvg">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">历史最大遗漏</div><div class="mg-stat-value" id="missMax">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">热号数量</div><div class="mg-stat-value" id="missHot">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">温号数量</div><div class="mg-stat-value" id="missWarm">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">冷号数量</div><div class="mg-stat-value" id="missCold">--</div></div>
+            </div>
+          </div>
+
+          <div class="mg-sub-title"><span>连出统计</span><span class="badge">公式版</span></div>
+          <div class="mg-summary-row">
+            <span>当前/最长连出 → <span id="streakTip" class="mg-hot-text">--</span></span>
+            <button class="btn sm secondary" data-action="toggleDetail" data-target="detail9">展开详情</button>
+          </div>
+          <div class="mg-detail" id="detail9">
+            <div class="mg-stat-grid">
+              <div class="mg-stat-box"><div class="mg-stat-label">当前连出</div><div class="mg-stat-value" id="streakCur">--</div></div>
+              <div class="mg-stat-box"><div class="mg-stat-label">最长连出</div><div class="mg-stat-value" id="streakMax">--</div></div>
+            </div>
+          </div>
+
+          <div class="mg-sub-title danger"><span>综合热门特码</span></div>
+          <div class="mg-tip-line">特码热门TOP5 → <span id="hotNumber" class="mg-hot-number">--</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 生肖关联 -->
+    <div class="mg-panel" id="zodiacAnalysisPanel">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>特码生肖 · 尾数关联</h2></div>
+        <div class="mg-card-body">
+          <div class="mg-filter-bar">
+            <select id="zodiacAnalyzeSelect" class="select">
+              <option value="12" selected>最近12期</option>
+              <option value="24">最近24期</option>
+              <option value="36">最近36期</option>
+              <option value="all">全年数据</option>
+            </select>
+            <input type="number" id="zodiacCustomNum" class="input mg-input" placeholder="自定义期数">
+            <select id="numCountSelect" class="select">
+              <option value="5" selected>5个号</option>
+              <option value="10">10个号</option>
+              <option value="15">15个号</option>
+              <option value="20">20个号</option>
+              <option value="custom">自定义</option>
+            </select>
+            <input type="number" id="customNumCount" class="input mg-input" placeholder="自定义数量" style="display:none;">
+            <button class="btn sm primary" data-action="syncZodiacAnalyze">确认</button>
+          </div>
+
+          <div class="empty" id="zodiacEmptyTip">暂无开奖历史数据</div>
+          <div id="zodiacContent" style="display:none;">
+            <div class="mg-conclusion">
+              <div class="mg-conclusion-title">特码真实共振组合</div>
+              <div class="mg-conclusion-item" id="combo1">1. 首选：--</div>
+              <div class="mg-conclusion-item" id="combo2">2. 次选：--</div>
+              <div class="mg-conclusion-item" id="combo3">3. 备选：--</div>
+            </div>
+            <div class="mg-sub-title"><span>① 特码尾数 → 特码生肖真实关联</span></div>
+            <div class="data-grid-z" id="tailZodiacGrid"></div>
+            <div class="mg-sub-title"><span>② 上期特码生肖 → 本期跟随</span></div>
+            <table class="follow-table-z" id="zodiacFollowTable"></table>
+            <div class="mg-sub-title"><span>③ 12生肖特码冷热统计</span></div>
+            <div class="data-grid-z data-grid-4" id="zodiacTotalGrid"></div>
+            <div class="mg-sub-title"><span>④ 高遗漏生肖（反弹关注）</span></div>
+            <div class="data-grid-z data-grid-3" id="zodiacMissGrid"></div>
+            <button class="btn primary mg-block-btn" id="zodiacFinalNum">精选特码：--</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 迁移视图：资料 ===== -->
+  <section class="view" data-view="random" id="randomPage">
+    <div class="mg-page-head">
+      <h1>资料</h1>
+      <p>主推 / 终极 / 预测 / Giong</p>
+    </div>
+
+    <div class="segmented mg-tabs" role="tablist" aria-label="资料标签">
+      <span class="seg-thumb"></span>
+      <button class="seg-item zodiac-tab-btn active" data-zodiac-tab="ultimate" role="tab">终极算法</button>
+      <button class="seg-item zodiac-tab-btn" data-zodiac-tab="predict" role="tab">生肖预测</button>
+      <button class="seg-item zodiac-tab-btn" data-zodiac-tab="giong" role="tab">Giong</button>
+    </div>
+
+    <div id="zodiacMainPanel" class="mg-panel">
+      <div class="liquid-glass card" id="mainDataFreshnessCard">
+        <div class="mg-card-head"><h2>主推</h2><span class="badge" id="mainDataFreshness">--</span></div>
+      </div>
+      <div class="liquid-glass card" id="mainPredictHeaderCard">
+        <div class="mg-card-head"><h2 id="mainPredictTitle">滑动窗口</h2></div>
+      </div>
+      <div class="liquid-glass card" id="mainCandidatesCard">
+        <div class="mg-card-head"><h2>候选池</h2></div>
+        <div class="mg-card-body"><div class="mg-number-grid" id="mainCandidatesGrid"></div></div>
+      </div>
+      <div class="liquid-glass card" id="mainScoreTableCard">
+        <div class="mg-card-head"><h2>评分明细</h2></div>
+        <div class="mg-card-body" id="mainScoreTable"></div>
+      </div>
+      <div class="liquid-glass card" id="mainHistoryListCard">
+        <div class="mg-card-head"><h2>主推进度</h2></div>
+        <div class="mg-card-body"><div id="mainBacktestSection"></div></div>
+      </div>
+      <div class="liquid-glass card" id="mainEmptyCard" style="display:none;">
+        <div class="mg-card-body"><div class="empty" id="mainEmptyTip">暂无主推数据</div></div>
+      </div>
+    </div>
+
+    <div id="zodiacUltimatePanel" class="mg-panel">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>终极算法</h2><span class="badge" id="ultimateExpectDisplay">--</span></div>
+        <div class="mg-card-body" id="ultimateResultContainer"></div>
+      </div>
+      <div class="liquid-glass card"><div class="mg-card-head"><h2>回测</h2></div>
+        <div class="mg-card-body" id="ultimateBacktestContainer"></div>
+      </div>
+    </div>
+
+    <div id="zodiacPredictPanel" class="mg-panel">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>生肖预测</h2></div>
+        <div class="mg-card-body" id="zodiacPredictionGrid"></div>
+      </div>
+      <div class="liquid-glass card"><div class="mg-card-head"><h2>策略</h2></div>
+        <div class="mg-card-body" id="zodiacStrategyPanel"></div>
+      </div>
+      <div class="liquid-glass card"><div class="mg-card-head"><h2>回测</h2></div>
+        <div class="mg-card-body" id="zodiacBacktestContainer"></div>
+      </div>
+    </div>
+
+    <div id="zodiacGiongPanel" class="mg-panel">
+      <div class="liquid-glass card"><div class="mg-card-head"><h2>Giong 推荐</h2></div>
+        <div class="mg-card-body" id="giongRecommendPanel"></div>
+      </div>
+      <div class="liquid-glass card"><div class="mg-card-head"><h2>频率</h2></div>
+        <div class="mg-card-body" id="giongFreqGrid"></div>
+      </div>
+      <div class="mg-panel-slot" id="latestFollowStatsPanel"></div>
+      <div class="mg-panel-slot" id="combinedAnalysisPanel"></div>
+      <div class="mg-panel-slot" id="giongBacktestPanel"></div>
+      <div class="mg-panel-slot" id="giongZoneChangePanel"></div>
+      <div class="mg-panel-slot" id="giongZoneChangePanelMulti"></div>
+    </div>
+  </section>
+
+  <!-- ===== 迁移视图：我的 ===== -->
+  <section class="view" data-view="profile" id="profilePage">
+    <div class="mg-page-head">
+      <h1>我的</h1>
+      <p>资料与使用说明</p>
+    </div>
+
+    <div class="segmented mg-tabs" role="tablist" aria-label="我的标签">
+      <span class="seg-thumb"></span>
+      <button class="seg-item zodiac-tab-btn active" data-profile-tab="mine" role="tab">我的</button>
+      <button class="seg-item zodiac-tab-btn" data-profile-tab="official" role="tab">官方</button>
+      <button class="seg-item zodiac-tab-btn" data-profile-tab="phoenix" role="tab">凤凰</button>
+      <button class="seg-item zodiac-tab-btn" data-profile-tab="daxian" role="tab">大仙</button>
+    </div>
+
+    <div class="mg-panel active" id="profileMinePanel">
+      <div class="liquid-glass card">
+        <div class="mg-card-head"><h2>外观设置</h2></div>
+        <div class="mg-card-body">
+          <button class="row" type="button" id="openSettingsRow">
+            <span class="row-label">液态玻璃参数</span>
+            <span class="row-val">主题 / 材质 / 壁纸</span>
+            <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg>
+          </button>
+          <button class="row" type="button" id="openComponentsRow">
+            <span class="row-label">组件库</span>
+            <span class="row-val">按钮 / 标签 / 弹窗</span>
+            <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mg-panel" id="profileOfficialPanel">
+      <div class="liquid-glass card"><div class="mg-card-body mg-frame-box">
+        <div class="empty" id="officialLoading">加载中...</div>
+        <iframe id="officialFrame" class="mg-frame" title="官方资料"></iframe>
+      </div></div>
+    </div>
+    <div class="mg-panel" id="profilePhoenixPanel">
+      <div class="liquid-glass card"><div class="mg-card-body mg-frame-box">
+        <div class="empty" id="phoenixLoading">加载中...</div>
+        <iframe id="phoenixFrame" class="mg-frame" title="凤凰资料"></iframe>
+      </div></div>
+    </div>
+    <div class="mg-panel" id="profileDaxianPanel">
+      <div class="liquid-glass card"><div class="mg-card-body mg-frame-box">
+        <div class="empty" id="daxianLoading">加载中...</div>
+        <iframe id="daxianFrame" class="mg-frame" title="大仙资料"></iframe>
+      </div></div>
+    </div>
+  </section>
+
+
+  <!-- ===== 视图：设置 ===== -->
+  <section class="view" data-view="settings">
+    <div class="page-head"><h1>设置</h1><p class="page-sub">滑块 0 = 默认外观（左减右增）· 双击参数名恢复默认</p></div>
+
+    <div class="liquid-glass account-card" id="account-card" role="button" tabindex="0">
+      <div class="avatar" id="av-box">JD</div>
+      <div class="account-info">
+        <div class="account-name" id="ac-name">John Doe</div>
+        <div class="account-mail" id="ac-mail">john.doe@example.com</div>
+      </div>
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg>
+    </div>
+
+    <!-- 显示 -->
+    <div class="group-title">显示与字体</div>
+    <div class="liquid-glass card">
+      <div class="row block">
+        <div class="row-head"><span>显示模式</span><span class="row-val" id="val-theme-mode"></span></div>
+        <div class="segmented" id="seg-theme">
+          <div class="seg-thumb"></div>
+          <div class="seg-item" data-theme="dark">深色</div>
+          <div class="seg-item" data-theme="light">浅色</div>
+          <div class="seg-item" data-theme="auto">跟随系统</div>
+        </div>
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>字体</span><span class="row-val" id="val-face">系统</span></div>
+        <div class="segmented" id="seg-face">
+          <div class="seg-thumb"></div>
+          <div class="seg-item" data-face="system">系统</div>
+          <div class="seg-item" data-face="rounded">圆润</div>
+          <div class="seg-item" data-face="serif">衬线</div>
+        </div>
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>界面字号</span><span class="row-val" id="val-font">100 %</span></div>
+        <input type="range" id="r-font" min="-0.30" max="0.30" step="0.02" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>分组标题字号</span><span class="row-val" id="val-group-font">12 px</span></div>
+        <input type="range" id="r-group-font" min="-8" max="8" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>页面大标题字号</span><span class="row-val" id="val-h1-font">30 px</span></div>
+        <input type="range" id="r-h1-font" min="-14" max="14" step="1" />
+      </div>
+    </div>
+
+    <!-- 玻璃材质 -->
+    <div class="group-title">玻璃材质</div>
+    <div class="liquid-glass card">
+      <div class="row">
+        <span class="row-label">玻璃着色</span>
+        <span class="cfield" id="cf-tint"><input type="color" id="c-tint" /></span>
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>基底透明度</span><span class="row-val" id="val-opacity">0.35</span></div>
+        <input type="range" id="r-opacity" min="-0.32" max="0.32" step="0.01" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>模糊强度</span><span class="row-val" id="val-blur">28 px</span></div>
+        <input type="range" id="r-blur" min="-28" max="28" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>饱和度</span><span class="row-val" id="val-sat">120 %</span></div>
+        <input type="range" id="r-sat" min="-110" max="110" step="5" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>边框强度</span><span class="row-val" id="val-border">0.10</span></div>
+        <input type="range" id="r-border" min="-0.20" max="0.20" step="0.01" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>内高光</span><span class="row-val" id="val-highlight">0.55</span></div>
+        <input type="range" id="r-highlight" min="-0.55" max="0.55" step="0.01" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>模糊色散（RGB 分离）</span><span class="row-val" id="val-chroma">0.0</span></div>
+        <input type="range" id="r-chroma" min="-6" max="6" step="0.5" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>噪点颗粒</span><span class="row-val" id="val-grain">0.12</span></div>
+        <input type="range" id="r-grain" min="-0.30" max="0.30" step="0.01" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>投影强度</span><span class="row-val" id="val-shadow">0.32</span></div>
+        <input type="range" id="r-shadow" min="-0.50" max="0.50" step="0.01" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>卡片圆角</span><span class="row-val" id="val-card-radius">20 px</span></div>
+        <input type="range" id="r-card-radius" min="-20" max="20" step="1" />
+      </div>
+    </div>
+
+    <!-- 导航栏 -->
+    <div class="group-title">导航栏</div>
+    <div class="liquid-glass card">
+      <div class="row block">
+        <div class="row-head"><span>胶囊圆角</span><span class="row-val" id="val-radius">999 px</span></div>
+        <input type="range" id="r-radius" min="-999" max="999" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>悬浮高度</span><span class="row-val" id="val-bottom">16 px</span></div>
+        <input type="range" id="r-bottom" min="-76" max="76" step="2" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>胶囊间距</span><span class="row-val" id="val-gap">12 px</span></div>
+        <input type="range" id="r-gap" min="-18" max="18" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>图标尺寸</span><span class="row-val" id="val-icon">26 px</span></div>
+        <input type="range" id="r-icon" min="-0.80" max="0.80" step="0.05" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>导航项最小宽度</span><span class="row-val" id="val-tabmin">72 px</span></div>
+        <input type="range" id="r-tabmin" min="-48" max="48" step="2" />
+      </div>
+      <div class="row">
+        <span class="row-label">选中项放大</span>
+        <div class="switch" data-switch="activeScale"></div>
+      </div>
+      <div class="row">
+        <span class="row-label">显示文字标签</span>
+        <div class="switch" data-switch="showLabel"></div>
+      </div>
+      <div class="row"><span class="row-label">滚动收起导航</span><div class="switch" data-switch="autoHide"></div></div>
+    </div>
+
+    <!-- 搜索按钮 -->
+    <div class="group-title">搜索按钮</div>
+    <div class="liquid-glass card">
+      <div class="row block">
+        <div class="row-head"><span>按钮宽度</span><span class="row-val" id="val-solo-w">44 px</span></div>
+        <input type="range" id="r-solo-w" min="-30" max="30" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>图标尺寸</span><span class="row-val" id="val-solo-icon">26 px</span></div>
+        <input type="range" id="r-solo-icon" min="-14" max="14" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>胶囊圆角</span><span class="row-val" id="val-solo-radius">999 px</span></div>
+        <input type="range" id="r-solo-radius" min="-999" max="999" step="1" />
+      </div>
+    </div>
+
+    <!-- 背景壁纸 -->
+    <div class="group-title">背景壁纸</div>
+    <div class="liquid-glass card">
+      <div class="row tap" id="btn-wall-upload">
+        <span class="row-label">选择壁纸</span>
+        <span class="row-val" id="wall-state">未设置</span>
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>壁纸模糊</span><span class="row-val" id="val-wall-blur">0 px</span></div>
+        <input type="range" id="r-wall-blur" min="-44" max="44" step="1" />
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>壁纸暗化</span><span class="row-val" id="val-wall-dim">0.35</span></div>
+        <input type="range" id="r-wall-dim" min="-0.55" max="0.55" step="0.01" />
+      </div>
+      <div class="row">
+        <span class="row-label">预设渐变</span>
+        <div class="swatches" id="wall-presets">
+          <span class="swatch" data-preset="aurora" style="background:linear-gradient(140deg,#2b1b6b,#5b3cc4 45%,#00d4ff)"></span>
+          <span class="swatch" data-preset="sunset" style="background:linear-gradient(140deg,#3d1b4f,#ff6a3d 55%,#ffd36e)"></span>
+          <span class="swatch" data-preset="ocean" style="background:linear-gradient(140deg,#04213a,#0a6a8c 50%,#4fd1c5)"></span>
+          <span class="swatch" data-preset="sand" style="background:linear-gradient(140deg,#3a2f26,#b08a5a 55%,#ecd6b0)"></span>
+          <span class="swatch" data-preset="mono" style="background:linear-gradient(140deg,#101014,#3a3a44 55%,#6f6f7a)"></span>
+        </div>
+      </div>
+      <div class="row tap" id="btn-pick-color">
+        <span class="row-label">提取壁纸主色</span>
+        <span class="row-val">应用到指示器</span>
+      </div>
+      <div class="row tap danger" id="btn-wall-remove">
+        <span class="row-label">移除壁纸</span>
+      </div>
+    </div>
+
+    <!-- 选中指示器 -->
+    <div class="group-title">选中指示器</div>
+    <div class="liquid-glass card">
+      <div class="row">
+        <span class="row-label">指示器颜色</span>
+        <span class="cfield" id="cf-indicator"><input type="color" id="c-indicator" /></span>
+      </div>
+      <div class="row block">
+        <div class="row-head"><span>指示器样式</span></div>
+        <div class="segmented" id="seg-indicator">
+          <div class="seg-thumb"></div>
+          <div class="seg-item" data-style="fill">填充胶囊</div>
+          <div class="seg-item" data-style="ring">描边环</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 交互 -->
+    <div class="group-title">交互与反馈</div>
+    <div class="liquid-glass card">
+      <div class="row"><span class="row-label">通知</span><div class="switch" data-switch="notify"></div></div>
+      <div class="row"><span class="row-label">触感反馈</span><div class="switch" data-switch="haptic"></div></div>
+      <div class="row"><span class="row-label">滑动动效</span><div class="switch" data-switch="motion"></div></div>
+      <div class="row"><span class="row-label">左右滑动切换页面</span><div class="switch" data-switch="swipeNav"></div></div>
+    </div>
+
+    <!-- 动效与性能 -->
+    <div class="group-title">动效与性能</div>
+    <div class="liquid-glass card">
+      <div class="row block">
+        <div class="row-head"><span>动画速度</span><span class="row-val" id="val-speed">1.0 ×</span></div>
+        <input type="range" id="r-speed" min="-1.5" max="1.5" step="0.1" />
+      </div>
+      <div class="row">
+        <span class="row-label">性能模式（关闭实时模糊）</span>
+        <div class="switch" data-switch="perfMode"></div>
+      </div>
+    </div>
+
+    <!-- 存储 -->
+    <div class="group-title">存储与配置</div>
+    <div class="liquid-glass card">
+      <div class="row tap" id="btn-export"><span class="row-label">导出配置</span><span class="row-val">JSON</span></div>
+      <div class="row tap" id="btn-import"><span class="row-label">导入配置</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg></div>
+      <div class="row tap" id="btn-reset"><span class="row-label">恢复默认外观</span></div>
+      <div class="row tap" id="btn-reset-dark"><span class="row-label">仅重置深色参数</span><span class="row-val">材质</span></div>
+      <div class="row tap" id="btn-reset-light"><span class="row-label">仅重置浅色参数</span><span class="row-val">材质</span></div>
+      <div class="row tap" id="btn-clear"><span class="row-label">清除缓存</span><span class="row-val" id="cache-size">—</span></div>
+    </div>
+
+    <!-- 组件库入口 -->
+    <div class="group-title">组件</div>
+    <div class="liquid-glass card">
+      <div class="row tap" id="btn-components">
+        <span class="row-label">组件库</span>
+        <span class="row-val">按钮 / 表单 / 提示 / 反馈</span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="group-title">关于</div>
+    <div class="liquid-glass card">
+      <div class="row"><span class="row-label">版本</span><span class="row-val">1.7.4</span></div>
+      <div class="row"><span class="row-label">可调配置项</span><span class="row-val" id="conf-count">—</span></div>
+      <div class="row tap" id="btn-privacy"><span class="row-label">隐私政策</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg></div>
+      <div class="row tap" id="btn-terms"><span class="row-label">用户协议</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg></div>
+    </div>
+
+    <div class="liquid-glass card" style="margin-top:20px;">
+      <div class="row tap center danger" id="btn-logout"><span>退出登录</span></div>
+    </div>
+
+    <div class="foot-note">双击参数名可恢复该项默认值 · Liquid Glass UI · 风格参考 rdev/liquid-glass-react</div>
+  </section>
+
+  <!-- ===== 视图：组件库 ===== -->
+  <section class="view" data-view="components">
+    <div class="page-head">
+      <button class="btn sm ghost back-btn" id="btn-back-settings" type="button">← 返回设置</button>
+      <h1>组件库</h1>
+      <p class="page-sub">照抄 class 与结构即可复用 · 深浅主题自动适配</p>
+    </div>
+
+    <!-- 组件清单：新增页面直接对照这组 class 复用 -->
+    <div class="liquid-glass card" id="pv-card">
+      <div class="pv-block">
+        <div class="pv-label">基础按钮 .btn</div>
+        <div class="pv-row">
+          <button class="btn primary" type="button">主要</button>
+          <button class="btn secondary" type="button">次要</button>
+          <button class="btn ghost" type="button">取消</button>
+        </div>
+        <div class="pv-row">
+          <button class="btn danger" type="button">删除</button>
+          <button class="btn text" type="button">文字</button>
+          <button class="btn icon ghost" type="button" aria-label="新增"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;button class="btn primary"&gt;主要&lt;/button&gt;
+&lt;button class="btn secondary"&gt;次要&lt;/button&gt;
+&lt;button class="btn ghost"&gt;取消&lt;/button&gt;
+&lt;button class="btn danger"&gt;删除&lt;/button&gt;
+&lt;button class="btn text"&gt;文字&lt;/button&gt;
+&lt;button class="btn icon ghost"&gt;＋&lt;/button&gt;</code></pre>
+            <div class="pv-note">类型：primary / secondary / ghost / danger / text / icon。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">尺寸 .sm / .lg / .block</div>
+        <div class="pv-row">
+          <button class="btn sm primary" type="button">小号</button>
+          <button class="btn primary" type="button">默认</button>
+          <button class="btn lg primary" type="button">大号</button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;button class="btn sm primary"&gt;小号&lt;/button&gt;
+&lt;button class="btn primary"&gt;默认&lt;/button&gt;
+&lt;button class="btn lg primary"&gt;大号&lt;/button&gt;
+&lt;button class="btn primary block"&gt;整宽&lt;/button&gt;</code></pre>
+            <div class="pv-note">尺寸：.sm / 默认 / .lg；.block 撑满父容器。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">状态 .is-disabled / .is-loading</div>
+        <div class="pv-row">
+          <button class="btn secondary is-disabled" type="button">禁用</button>
+          <button class="btn secondary is-loading" type="button">加载中</button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;button class="btn is-disabled"&gt;禁用&lt;/button&gt;
+&lt;button class="btn is-loading"&gt;加载中&lt;/button&gt;</code></pre>
+            <div class="pv-note">禁用：.is-disabled（不拦截点击，需业务自己判断）。加载：.is-loading，自动出转圈，点击应自行忽略。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">其它控件</div>
+        <div class="pv-row">
+          <button class="pill-btn" type="button">胶囊</button>
+          <button class="sheet-close" type="button" style="position:static" aria-label="图标按钮"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
+          <div class="switch on"></div>
+          <span class="swatch" style="background:linear-gradient(140deg,#2b1b6b,#5b3cc4 45%,#00d4ff)"></span>
+          <span class="swatch" style="background:linear-gradient(140deg,#3d1b4f,#ff6a3d 55%,#ffd36e)"></span>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;button class="pill-btn"&gt;胶囊&lt;/button&gt;
+&lt;button class="sheet-close"&gt;✕&lt;/button&gt;
+&lt;div class="switch on"&gt;&lt;/div&gt;  &lt;!-- JS 用 classList.toggle('on') --&gt;
+&lt;span class="swatch" style="background:linear-gradient(140deg,#2b1b6b,#5b3cc4 45%,#00d4ff)"&gt;&lt;/span&gt;</code></pre>
+            <div class="pv-note">开关是纯视觉 class，状态由 .on 控制；色卡 .swatch 需自带 background。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">复选 / 单选 .checkbox / .radio</div>
+        <div class="pv-row" style="gap:18px;">
+          <label class="checkbox"><input type="checkbox" checked><span class="box"></span><span class="cb-text">已选</span></label>
+          <label class="checkbox"><input type="checkbox"><span class="box"></span><span class="cb-text">未选</span></label>
+          <label class="checkbox is-disabled"><input type="checkbox" disabled><span class="box"></span><span class="cb-text">禁用</span></label>
+        </div>
+        <div class="pv-row" style="gap:18px;margin-top:12px;">
+          <label class="radio"><input type="radio" name="pv-radio" checked><span class="box"></span><span class="cb-text">选项 A</span></label>
+          <label class="radio"><input type="radio" name="pv-radio"><span class="box"></span><span class="cb-text">选项 B</span></label>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;label class="checkbox"&gt;
+  &lt;input type="checkbox" checked&gt;
+  &lt;span class="box"&gt;&lt;/span&gt;&lt;span class="cb-text"&gt;已选&lt;/span&gt;
+&lt;/label&gt;
+
+&lt;label class="radio"&gt;
+  &lt;input type="radio" name="g" checked&gt;
+  &lt;span class="box"&gt;&lt;/span&gt;&lt;span class="cb-text"&gt;选项 A&lt;/span&gt;
+&lt;/label&gt;
+
+&lt;label class="checkbox is-disabled"&gt;&lt;input type="checkbox" disabled&gt;&lt;span class="box"&gt;&lt;/span&gt;&lt;span class="cb-text"&gt;禁用&lt;/span&gt;&lt;/label&gt;</code></pre>
+            <div class="pv-note">input 只做视觉隐藏，checked / disabled 原生可用。同组单选取相同 name。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">下拉选择 .select（支持搜索）</div>
+        <div class="select" id="pv-select">
+          <button class="select-trigger" type="button" aria-expanded="false">
+            <span class="select-value">请选择</span>
+            <svg class="select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;div class="select" data-value=""&gt;
+  &lt;button class="select-trigger" type="button" aria-expanded="false"&gt;
+    &lt;span class="select-value"&gt;请选择&lt;/span&gt;
+    &lt;svg class="select-chev" viewBox="0 0 24 24"&gt;&lt;use href="#i-chev"/&gt;&lt;/svg&gt;
+  &lt;/button&gt;
+  &lt;!-- 仅数据声明，初始化后会从 DOM 移除 --&gt;
+  &lt;div class="select-option" data-value="a"&gt;选项 A&lt;/div&gt;
+  &lt;div class="select-option is-disabled" data-value="b"&gt;禁用项&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+var sel = initSelect(document.querySelector('.select'));
+sel.onChange(function(v, label){ /* 业务回调 */ });
+sel.set('a');   // 程序化赋值
+sel.value;      // 读当前值
+&lt;/script&gt;</code></pre>
+            <div class="pv-note">面板自动挂到 body、按空间自动上下翻转、支持搜索过滤；Esc 关闭、↑↓ 移动、回车确认。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">进度条 .progress</div>
+        <div class="progress-row"><span>确定进度</span><div class="progress" id="pv-prog" data-value="62"><div class="progress-fill" style="width:62%"></div></div><span id="pv-prog-val">62%</span></div>
+        <div class="progress-row" style="margin-top:12px;"><span>不确定</span><div class="progress is-indeterminate"><div class="progress-fill"></div></div><span>—</span></div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;div class="progress"&gt;&lt;div class="progress-fill" style="width:60%"&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class="progress is-indeterminate"&gt;&lt;div class="progress-fill"&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;script&gt;setProgress(el, 62); // 自动夹到 0–100&lt;/script&gt;</code></pre>
+            <div class="pv-note">确定进度用内联 width；不确定加载加 .is-indeterminate。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">页面内提示 .notice</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div class="notice notice-success"><div class="notice-icon"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg></div><div class="notice-body"><div class="notice-title">保存成功</div><div class="notice-text">配置已写入本地存储。</div></div></div>
+          <div class="notice notice-warn"><div class="notice-icon"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert"/></svg></div><div class="notice-body"><div class="notice-title">注意</div><div class="notice-text">恢复默认会清空当前主题参数。</div></div><button class="notice-close" type="button" aria-label="关闭"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+          <div class="notice notice-info"><div class="notice-icon"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-info"/></svg></div><div class="notice-body"><div class="notice-text">提示块用于页面内常驻说明，不打断操作。</div></div></div>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;div class="notice notice-warn"&gt;
+  &lt;div class="notice-icon"&gt;&lt;svg class="i sm" viewBox="0 0 24 24"&gt;&lt;use href="#i-alert"/&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class="notice-body"&gt;
+    &lt;div class="notice-title"&gt;注意&lt;/div&gt;
+    &lt;div class="notice-text"&gt;说明文案&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;button class="notice-close" type="button"&gt;&lt;svg class="i sm" viewBox="0 0 24 24"&gt;&lt;use href="#i-x"/&gt;&lt;/svg&gt;&lt;/button&gt;
+&lt;/div&gt;</code></pre>
+            <div class="pv-note">类型：notice-success / notice-warn / notice-danger / notice-info。关闭按钮可省，省掉即常驻。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">标签 .tag</div>
+        <div class="pv-row">
+          <span class="tag">默认标签</span>
+          <span class="tag primary">主色标签</span>
+          <span class="tag closable">可关闭<button class="tag-x" type="button" aria-label="移除"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+          <span class="tag closable">可关闭<button class="tag-x" type="button" aria-label="移除"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;span class="tag"&gt;默认&lt;/span&gt;
+&lt;span class="tag primary"&gt;主色&lt;/span&gt;
+&lt;span class="tag"&gt;可关闭&lt;button class="tag-x" type="button"&gt;✕&lt;/button&gt;&lt;/span&gt;</code></pre>
+            <div class="pv-note">.primary 为主色变体；带 .tag-x 的由 initTagClose() 自动绑定移除动画。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">步进器 .stepper / 加载遮罩</div>
+        <div class="pv-row" style="gap:12px;">
+          <div class="stepper" data-min="1" data-max="99" data-value="3">
+            <button class="step-btn" type="button" data-act="minus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
+            <input class="step-val" type="number" value="3" inputmode="numeric" aria-label="数量">
+            <button class="step-btn" type="button" data-act="plus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          </div>
+          <button class="btn sm secondary" id="pv-loader" type="button">显示加载遮罩</button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;div class="stepper" data-min="1" data-max="99" data-value="3"&gt;
+  &lt;button class="step-btn" type="button" data-act="minus"&gt;−&lt;/button&gt;
+  &lt;input class="step-val" type="number" value="3" inputmode="numeric"&gt;
+  &lt;button class="step-btn" type="button" data-act="plus"&gt;+&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;script&gt;initStepper(document.querySelector('.stepper'));&lt;/script&gt;
+
+&lt;div class="loader" id="loader"&gt;&lt;/div&gt;
+&lt;script&gt;showLoader('正在处理…'); hideLoader();&lt;/script&gt;</code></pre>
+            <div class="pv-note">步进器自动夹紧区间、首尾禁用按钮、长按连续增减。加载遮罩层级 400，高于弹窗与面板。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">提示与对话</div>
+        <div class="pv-row">
+          <button class="btn sm secondary" id="pv-toast-ok" type="button">成功提示</button>
+          <button class="btn sm secondary" id="pv-toast-err" type="button">错误提示</button>
+          <button class="btn sm secondary" id="pv-dialog" type="button">确认弹窗</button>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>// 轻提示：ok / err / warn / info
+toast('保存成功', 'ok');
+
+// 居中确认框（可带输入）
+confirmDialog({
+  title: '新建模块',
+  desc: '给新模块起个名字',
+  input: true,
+  placeholder: '例如：每日复盘',
+  okText: '创建',
+  danger: false,
+  onOk: function(name){ /* 确认后执行 */ }
+});</code></pre>
+            <div class="pv-note">toast 自动消失；confirmDialog 带焦点锁与 Esc 关闭，danger:true 时确认键变红。</div>
+          </div>
+        </div>      </div>
+
+      <div class="pv-block">
+        <div class="pv-label">徽标 .badge / 列表项 .list-item</div>
+        <div class="pv-row" style="margin-bottom:10px;">
+          <span class="badge">3</span>
+          <span class="badge dot"></span>
+          <span style="font-size:13px;opacity:.5;">数字徽标 / 红点</span>
+        </div>
+        <div class="list-item" style="padding:12px 0;border-bottom:1px solid var(--lg-line);">
+          <div class="li-icon">📄</div>
+          <div class="li-body">
+            <div class="li-title">列表项标题</div>
+            <div class="li-sub">副标题说明，过长自动省略</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chev"/></svg>
+        </div>
+        <div class="empty" style="padding:26px 8px 6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 11h8M8 15h5"/></svg>
+          <h3>空状态 .empty</h3>
+          <p>没有内容时给一句引导，不要只留白屏。</p>
+        </div>
+      
+        <div class="pv-doc">
+          <div class="pv-doc-head">
+            <button class="pv-doc-toggle" type="button" aria-expanded="false">代码 / 参数</button>
+            <button class="pv-doc-copy" type="button">复制</button>
+          </div>
+          <div class="pv-doc-body">
+            <pre class="pv-code"><code>&lt;span class="badge"&gt;3&lt;/span&gt;
+&lt;span class="badge dot"&gt;&lt;/span&gt;
+
+&lt;div class="list-item"&gt;
+  &lt;div class="li-icon"&gt;📄&lt;/div&gt;
+  &lt;div class="li-body"&gt;
+    &lt;div class="li-title"&gt;标题&lt;/div&gt;
+    &lt;div class="li-sub"&gt;副标题，过长自动省略&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;svg class="chev" viewBox="0 0 24 24"&gt;&lt;use href="#i-chev"/&gt;&lt;/svg&gt;
+&lt;/div&gt;
+
+&lt;div class="divider"&gt;&lt;/div&gt;</code></pre>
+            <div class="pv-note">徽标：数字用 .badge，红点加 .dot。列表项副标题单行省略。 空态用 .empty 包裹图标 + 标题 + 一句引导。</div>
+          </div>
+        </div>      </div>
+
+      <div style="padding:14px 16px 16px;">
+        <button class="btn primary block" type="button">整宽按钮 .block</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 视图：搜索 ===== -->
+  <section class="view" data-view="search">
+    <div class="page-head"><h1>搜索</h1><p class="page-sub">搜索设置项，点击结果直达</p></div>
+    <div class="liquid-glass search-input">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="text" id="search-input" placeholder="模糊、圆角、壁纸、色散…" autocomplete="off" />
+    </div>
+    <div id="search-results"></div>
+  </section>
+
+</main>
+
+<!-- 快捷导航 -->
+<div class="quick-nav collapsed" id="quickNav" role="navigation" aria-label="模块快捷导航">
+  <div class="nav-tabs" id="navTabs" style="display:none" role="tablist"></div>
+</div>
+
+<!-- 返回顶部 -->
+<button class="back-top-btn" id="backTopBtn" aria-label="返回顶部">
+  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-top"/></svg>
+</button>
+
+<!-- 快捷导航开关 -->
+<button class="nav-toggle-btn" id="navToggle" aria-label="展开快捷导航" aria-expanded="false">导航</button>
+
+<!-- 固定底部导航 -->
+<nav class="tabbar-wrap" id="tabbar">
+  <div class="liquid-glass glass-capsule">
+    <div class="indicator" id="indicator"></div>
+    <div class="tab-item active" data-nav="filter" role="button" tabindex="0">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-home"/></svg>
+      <span>主页</span>
+    </div>
+    <div class="tab-item" data-nav="analysis" role="button" tabindex="0">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-broadcast"/></svg>
+      <span>广播</span>
+    </div>
+    <div class="tab-item" data-nav="random" role="button" tabindex="0">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-data"/></svg>
+      <span>资料</span>
+    </div>
+    <div class="tab-item" data-nav="profile" role="button" tabindex="0">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+  <div class="liquid-glass glass-capsule solo">
+    <div class="tab-item solo" data-nav="settings" role="button" tabindex="0" aria-label="外观设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sliders"/></svg>
+    </div>
+  </div>
+</nav>
+
+<!-- 轻提示 -->
+<div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+<!-- 加载层（迁移层） -->
+<div class="loader show" id="loadingMask" role="status" aria-live="polite">
+  <div class="loader-card"><div class="loader-ring"></div><div class="loader-text">正在加载…</div></div>
+</div>
+<!-- 加载层（模板层） -->
+<div class="loader" id="loader" role="status" aria-live="polite">
+  <div class="loader-card"><div class="loader-ring"></div><div class="loader-text" id="loader-text">加载中…</div></div>
+</div>
+
+<!-- 居中确认 / 输入弹窗 -->
+<div class="dlg-mask" id="dlg-mask"></div>
+<div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-hidden="true" tabindex="-1">
+  <h3 id="dlg-title">标题</h3>
+  <p id="dlg-desc">说明</p>
+  <div class="dlg-field" id="dlg-field">
+    <input type="text" id="dlg-input" maxlength="24" autocomplete="off" />
+  </div>
+  <div class="dlg-foot">
+    <button class="btn ghost" id="dlg-cancel" type="button">取消</button>
+    <button class="btn primary" id="dlg-ok" type="button">确定</button>
+  </div>
+</div>
+
+<!-- 批量选择弹窗 -->
+<div class="batch-modal" id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle">
+  <div class="batch-modal-overlay" data-action="closeBatchModal"></div>
+  <div class="batch-modal-content">
+    <div class="batch-modal-header">
+      <h3 id="batchModalTitle">批量选择</h3>
+      <button class="sheet-close" type="button" data-action="closeBatchModal" aria-label="关闭">
+        <svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <div class="batch-modal-body">
+      <p class="batch-modal-hint">支持多种分隔符：逗号、顿号、空格、换行、点、斜杠、连字符等</p>
+      <input class="batch-modal-input" id="batchModalInput" type="text" placeholder="例如：马 牛 虎" autocomplete="off">
+      <button class="btn primary batch-modal-btn" type="button" data-action="confirmBatchSelect">确认选择</button>
+    </div>
+  </div>
+</div>
+
+<!-- 账户信息编辑面板 -->
+<div class="sheet-mask" id="profile-mask"></div>
+<div class="sheet" id="profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-sheet-title" aria-hidden="true" tabindex="-1">
+  <div class="sheet-grab" id="sheet-grab"></div>
+  <button class="sheet-close" id="btn-profile-close" type="button" aria-label="关闭"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
+  <div class="sheet-title" id="profile-sheet-title">编辑账户信息</div>
+
+  <div class="sheet-avatar-row">
+    <div class="avatar big" id="av-preview">JD</div>
+    <div class="sheet-avatar-actions">
+      <button class="pill-btn" id="btn-av-upload" type="button">更换头像</button>
+      <button class="pill-btn" id="btn-av-reset" type="button">用首字母</button>
+    </div>
+  </div>
+
+  <label class="field">
+    <span>名称</span>
+    <input type="text" id="in-name" maxlength="24" placeholder="你的名字" autocomplete="name" />
+  </label>
+  <label class="field">
+    <span>邮箱</span>
+    <input type="email" id="in-mail" placeholder="name@example.com" autocomplete="email" />
+  </label>
+
+  <div class="sheet-foot">
+    <button class="btn ghost" id="btn-profile-cancel" type="button">取消</button>
+    <button class="btn primary" id="btn-profile-save" type="button">保存</button>
+  </div>
+</div>
+
+<input type="file" id="avatar-file" accept="image/*" style="display:none" />
+<input type="file" id="import-file" accept="application/json" style="display:none" />
+<input type="file" id="wall-file" accept="image/*" style="display:none" />
+
+<!-- 模板层 -->
+<script src="js/business.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/view-settings.js"></script>
+<script src="js/view-search.js"></script>
+<script src="js/view-components.js"></script>
+
+<!-- 迁移层：先注入筛选页结构，再加载依赖缓存的模块 -->
+<script src="js/lg/mg-shell.js"></script>
+<script>MGShell.buildFilterPage();</script>
+
+<!-- 迁移层：核心 → 工具 → 平台 → 数据 -->
+<script src="js/mg/core/config.js"></script>
+<script src="js/mg/core/utils.js"></script>
+<script src="js/mg/platform/web/toast.js"></script>
+<script src="js/mg/platform/web/dom.js"></script>
+<script src="js/mg/data/data-query.js"></script>
+<script src="js/mg/core/state.js"></script>
+<script src="js/mg/core/storage.js"></script>
+<script src="js/mg/platform/web/render.js"></script>
+<script src="js/mg/data/filter.js"></script>
+<script src="js/mg/platform/web/modals/input-modal.js"></script>
+<script src="js/mg/platform/web/modals/confirm-modal.js"></script>
+<script src="js/mg/platform/web/modals/zodiac-stat-modal.js"></script>
+<script src="js/mg/platform/web/modals/unrec-source-modal.js"></script>
+
+<!-- 迁移层：业务 -->
+<script src="js/mg/business/business-cross-exclusion.js"></script>
+<script src="js/mg/business/business-main.js"></script>
+<script src="js/mg/business/business-filter-group.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-prediction.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-scores.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-miss.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-zones.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-stats.js"></script>
+<script src="js/mg/business/zodiac/business-zodiac-backtest.js"></script>
+<script src="js/mg/business/business-ultimate.js"></script>
+<script src="js/mg/business/business-giong.js"></script>
+<script src="js/mg/business/sliding-window/business-sliding-window.js"></script>
+<script src="js/mg/business/sliding-window/business-sliding-window-history.js"></script>
+<script src="js/mg/views/view-sliding-window-history.js"></script>
+
+<!-- 迁移层：视图 -->
+<script src="js/mg/views/view-common.js"></script>
+<script src="js/mg/views/view-filter.js"></script>
+<script src="js/mg/views/view-filter-group.js"></script>
+<script src="js/mg/views/modals/view-batch-modal.js"></script>
+<script src="js/mg/views/view-quick-nav.js"></script>
+<script src="js/mg/views/modals/view-overlap-modal.js"></script>
+<script src="js/mg/views/analysis/view-analysis.js"></script>
+<script src="js/mg/views/analysis/view-analysis-history.js"></script>
+<script src="js/mg/views/analysis/view-analysis-full.js"></script>
+<script src="js/mg/views/analysis/view-analysis-zodiac.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-predict.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-main.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-giong.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-giong-size.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-giong-oddeven.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-giong-wuxing.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-giong-color.js"></script>
+<script src="js/mg/views/zodiac/view-zodiac-ultimate.js"></script>
+<script src="js/mg/views/view-profile.js"></script>
+
+<!-- 迁移层：事件 + 适配 -->
+<script src="js/mg/event.js"></script>
+<script src="js/lg/mg-bridge.js"></script>
+
+<!-- 入口 -->
+<script src="js/mg/app.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>

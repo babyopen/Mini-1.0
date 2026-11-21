@@ -1,0 +1,17 @@
+{
+  "name": "Liquid Glass · 液态玻璃 UI 模板",
+  "short_name": "Liquid Glass",
+  "description": "iOS 26 风格的液态玻璃移动端 UI 模板，含设置面板、组件库与主题系统。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b14",
+  "theme_color": "#0b0b14",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

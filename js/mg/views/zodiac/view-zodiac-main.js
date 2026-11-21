@@ -1,0 +1,242 @@
+/**
+ * 视图层：主推面板（main panel，滑动窗口预测）
+ * 职责：渲染"资料页"中的"主推标签页"，包含候选生肖卡片 + 评分详细表格 + 数据陈旧度提示
+ * 依赖方向：被 business-main.js 调用
+ * 拆分记录：2026-06-09 从 view-zodiac-prediction.js 拆分
+ */
+const ViewZodiacMain = {
+
+  /**
+   * 渲染"最热/次热"窗口组合行（grid 三列：标题 / 组合 / 次数）
+   * @param {string} title - 行标题（含图标，如 '🎯 近12期最热：'）
+   * @param {Array<string>} combos - 组合列表
+   * @param {number} count - 出现次数
+   * @param {string} color - 主题色
+   * @returns {string} HTML
+   */
+  _renderComboRows: function(title, combos, count, color) {
+    var html = '<div style="display:grid;grid-template-columns:auto 1fr auto;gap:2px 6px;align-items:baseline;">';
+    html += '<div style="color:' + color + ';font-weight:600;">' + title + '</div>';
+    html += '<div style="color:var(--text);">' + combos[0] + '</div>';
+    html += '<div style="color:' + color + ';font-weight:600;">×' + count + '</div>';
+    for (var i = 1; i < combos.length; i++) {
+      html += '<div></div>';
+      html += '<div style="color:var(--text);">' + combos[i] + '</div>';
+      html += '<div style="color:' + color + ';font-weight:600;">×' + count + '</div>';
+    }
+    html += '</div>';
+    return html;
+  },
+
+  /**
+   * 渲染主推标签页：滑动窗口预测结果
+   * @param {Object} data - BusinessSlidingWindow.predict() 的返回结果
+   */
+  renderSlidingWindowPrediction: function(data) {
+    var headerCard = document.getElementById('mainPredictHeaderCard');
+    var candidatesCard = document.getElementById('mainCandidatesCard');
+    var scoreTableCard = document.getElementById('mainScoreTableCard');
+    var emptyCard = document.getElementById('mainEmptyCard');
+
+    if (!data || !data.candidates || !data.candidates.length) {
+      if (headerCard) headerCard.style.display = 'none';
+      if (candidatesCard) candidatesCard.style.display = 'none';
+      if (scoreTableCard) scoreTableCard.style.display = 'none';
+      if (emptyCard) {
+        emptyCard.style.display = '';
+        var emptyTip = document.getElementById('mainEmptyTip');
+        if (emptyTip) emptyTip.textContent = '数据不足（需至少12期历史数据），请先刷新数据';
+      }
+      return;
+    }
+
+    if (emptyCard) emptyCard.style.display = 'none';
+    if (headerCard) headerCard.style.display = '';
+    if (candidatesCard) candidatesCard.style.display = '';
+    if (scoreTableCard) scoreTableCard.style.display = '';
+
+    // 1. 渲染标题
+    var titleEl = document.getElementById('mainPredictTitle');
+    if (titleEl) {
+      titleEl.textContent = '第' + data.nextExpect + '期 主推生肖（滑动窗口算法）';
+    }
+
+    // 2. 渲染候选卡片（前6名）
+    var candidatesGrid = document.getElementById('mainCandidatesGrid');
+    if (candidatesGrid) {
+      var cardHtml = '<div class="zp-header-row">';
+      cardHtml += '<button class="db-copy-btn" data-action="copyZodiacTop6" type="button" aria-label="复制主推候选生肖"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>';
+      cardHtml += '</div>';
+
+      // V1.5/V1.5.1 新增：近 12 期热门/次热窗口组合信息条
+      // 布局策略：grid 三列（标题 / 组合 / 次数），第一行标题与第一个组合同行，
+      //          后续组合在下方行（第一列留空，自动缩进到组合文字起始位置）
+      var zca = data.zoneComboAnalysis;
+      if (zca) {
+        var hotRows = (zca.hotCombos && zca.hotCombos.length && zca.maxCount >= 2) ? zca.hotCombos : null;
+        var secondRows = (zca.secondHotCombos && zca.secondHotCombos.length && zca.secondMaxCount >= 2) ? zca.secondHotCombos : null;
+        if (hotRows || secondRows) {
+          cardHtml += '<div class="zone-combo-hot-bar" style="font-size:11px;color:var(--sub-text);padding:6px 8px;background:var(--mg-sky-a);border-left:3px solid var(--mg-sky);border-radius:4px;margin-bottom:8px;">';
+          if (hotRows) {
+            cardHtml += ViewZodiacMain._renderComboRows('🎯 近' + zca.recentN + '期最热：', hotRows, zca.maxCount, 'var(--mg-sky)');
+          }
+          if (secondRows) {
+            if (hotRows) cardHtml += '<div style="height:6px;"></div>';
+            cardHtml += ViewZodiacMain._renderComboRows('🥈 次热：', secondRows, zca.secondMaxCount, 'var(--mg-warn)');
+          }
+          cardHtml += '</div>';
+        }
+      }
+
+      cardHtml += '<div class="zodiac-pred-grid">';
+      var RANK_CLASS_MAP = { 1: 'card-rank-1', 2: 'card-rank-2', 3: 'card-rank-3' };
+      data.candidates.forEach(function(item, idx) {
+        var rankNum = idx + 1;
+        var cardClass = RANK_CLASS_MAP[rankNum] || 'card-rank-other';
+
+        var scoreColor = item.score >= 60 ? 'color:var(--mg-ok);' : (item.score >= 30 ? 'color:var(--mg-warn);' : 'color:var(--sub-text);');
+
+        // V1.5/V1.5.1 新增：窗口组合命中标记（最热 vs 次热 互斥）
+        var comboHitHtml = '';
+        if (item.zoneComboHit) {
+          comboHitHtml = '<div class="zodiac-static-sub" style="font-size:10px;color:var(--mg-sky);font-weight:600;">🎯 最热命中</div>';
+        } else if (item.zoneComboSecondHit) {
+          comboHitHtml = '<div class="zodiac-static-sub" style="font-size:10px;color:var(--mg-warn);font-weight:600;">🥈 次热命中</div>';
+        }
+
+        cardHtml += ViewCommon.renderZodiacCardHtml(
+          item.shengxiao, rankNum, cardClass, item.emoji,
+          '<div class="zodiac-static-sub" style="font-size:11px;' + scoreColor + '">评分:' + item.score + '</div>' + comboHitHtml
+        );
+      });
+      cardHtml += '</div>';
+      candidatesGrid.innerHTML = cardHtml;
+    }
+
+    // 3. 渲染评分详细表格（所有12生肖）
+    var scoreTable = document.getElementById('mainScoreTable');
+    if (scoreTable) {
+      // V1.5.2 新增：默认只展示前 2 名（top 2），其余折叠
+      var visibleCount = 2;
+      var preferExpanded = Storage.getScoreTableExpanded();
+      var wrapClass = preferExpanded ? 'sw-score-table-wrap expanded' : 'sw-score-table-wrap';
+
+      var tableHtml = '<div class="' + wrapClass + '">';
+      tableHtml += '<div class="sw-table-wrapper" style="overflow-x:auto;">';
+      tableHtml += '<table class="sw-score-table" style="width:100%;border-collapse:collapse;font-size:12px;">';
+      tableHtml += '<thead><tr style="background:var(--bg-secondary);">';
+      tableHtml += '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);">生肖</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">6期</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">12期</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">24期</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">36期</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">评分</th>';
+      tableHtml += '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);">遗漏</th>';
+      tableHtml += '</tr></thead><tbody>';
+
+      var allScores = data.allScores || [];
+      allScores.forEach(function(item, idx) {
+        var isTop6 = data.candidates.some(function(c) { return c.shengxiao === item.shengxiao; });
+        var rowBg = isTop6 ? 'background:var(--mg-ok-a);' : '';
+        var scoreStyle = item.score >= 60 ? 'color:var(--mg-ok);font-weight:700;' : (item.score >= 30 ? 'color:var(--mg-warn);font-weight:600;' : 'color:var(--sub-text);');
+
+        var zoneClass6 = ViewCommon.getZoneClass(item.zone6);    // V1.1 新增
+        var zoneClass12 = ViewCommon.getZoneClass(item.zone12);
+        var zoneClass24 = ViewCommon.getZoneClass(item.zone24);
+        var zoneClass36 = ViewCommon.getZoneClass(item.zone36);
+
+        // V1.5.2 新增：第 3 名起的"主行"和"信号行"加 sw-row-hidden（仅用于折叠，CSS 控制显示）
+        var hiddenClass = idx >= visibleCount ? 'sw-row-hidden' : '';
+
+        tableHtml += '<tr style="' + rowBg + '" class="' + hiddenClass + '">';
+        tableHtml += '<td style="padding:6px 8px;font-weight:600;">' + item.shengxiao + '</td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;">' + item.window6 + ' <span class="freq-zone-tag ' + zoneClass6 + '" style="font-size:10px;padding:0 4px;">' + item.zone6 + '</span></td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;">' + item.window12 + ' <span class="freq-zone-tag ' + zoneClass12 + '" style="font-size:10px;padding:0 4px;">' + item.zone12 + '</span></td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;">' + item.window24 + ' <span class="freq-zone-tag ' + zoneClass24 + '" style="font-size:10px;padding:0 4px;">' + item.zone24 + '</span></td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;">' + item.window36 + ' <span class="freq-zone-tag ' + zoneClass36 + '" style="font-size:10px;padding:0 4px;">' + item.zone36 + '</span></td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;' + scoreStyle + '">' + item.score + '</td>';
+        tableHtml += '<td style="padding:6px 8px;text-align:center;">' + (item.miss !== undefined ? item.miss + '期' : '—') + '</td>';
+        tableHtml += '</tr>';
+        // 信号单独占一行，跨 7 列（生肖+6/12/24/36期+评分+遗漏）
+        // 仅信号行保留 border-bottom，作为下一生肖组的视觉分隔
+        tableHtml += '<tr style="' + rowBg + 'border-bottom:1px solid var(--border);" class="' + hiddenClass + '">';
+        tableHtml += '<td colspan="7" style="padding:6px 8px;font-size:11px;">' + (item.signals ? item.signals.join('；') : '—') + '</td>';
+        tableHtml += '</tr>';
+      });
+
+      tableHtml += '</tbody></table></div>';
+
+      // 展开/折叠按钮（超过 visibleCount 条时显示）
+      if (allScores.length > visibleCount) {
+        var toggleLabel = preferExpanded ? '收起' : '展开更多（共' + allScores.length + '条）';
+        var toggleIcon = preferExpanded ? '▲' : '▼';
+        tableHtml += '<div class="sw-score-toggle" data-action="toggleScoreTable">';
+        tableHtml += '<span class="sw-score-toggle-text">' + toggleLabel + '</span>';
+        tableHtml += '<span class="sw-score-toggle-icon">' + toggleIcon + '</span>';
+        tableHtml += '</div>';
+      }
+      tableHtml += '</div>';
+
+      scoreTable.innerHTML = tableHtml;
+    }
+  },
+
+  /**
+   * 渲染数据陈旧度提示
+   * @param {number|null} timestamp - 数据缓存时间戳（毫秒），0 或 null 表示无缓存
+   * @param {number|null} ageHours - 缓存年龄（小时），null 表示无法计算
+   */
+  renderDataFreshness: function(timestamp, ageHours) {
+    var card = document.getElementById('mainDataFreshnessCard');
+    var el = document.getElementById('mainDataFreshness');
+    if (!card || !el) return;
+
+    if (!timestamp || timestamp <= 0) {
+      card.style.display = 'none';
+      return;
+    }
+
+    var ageText, severityClass, icon, label;
+    if (ageHours === null || ageHours === undefined) {
+      ageText = '未知';
+      severityClass = 'sw-freshness-unknown';
+      icon = '⏱';
+      label = '数据缓存时间未知';
+    } else if (ageHours < 1) {
+      ageText = '刚刚';
+      severityClass = 'sw-freshness-fresh';
+      icon = '✓';
+      label = '数据为最新';
+    } else if (ageHours < 24) {
+      ageText = ageHours + '小时前';
+      severityClass = 'sw-freshness-fresh';
+      icon = '✓';
+      label = '数据较新';
+    } else if (ageHours < 72) {
+      var days1 = Math.floor(ageHours / 24);
+      ageText = days1 + '天前';
+      severityClass = 'sw-freshness-stale';
+      icon = '⚠';
+      label = '数据可能已过时';
+    } else {
+      var daysN = Math.floor(ageHours / 24);
+      ageText = daysN + '天前';
+      severityClass = 'sw-freshness-expired';
+      icon = '✕';
+      label = '数据已严重过期，预测结果不可靠';
+    }
+
+    var updateTime = new Date(timestamp);
+    var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+    var timeStr = pad(updateTime.getMonth() + 1) + '-' + pad(updateTime.getDate()) + ' ' +
+                  pad(updateTime.getHours()) + ':' + pad(updateTime.getMinutes());
+
+    el.className = 'sw-freshness ' + severityClass;
+    el.innerHTML =
+      '<span class="sw-freshness-icon">' + icon + '</span>' +
+      '<span class="sw-freshness-label">' + label + '</span>' +
+      '<span class="sw-freshness-detail">最后更新：' + timeStr + '（' + ageText + '）</span>';
+
+    card.style.display = '';
+  }
+};
