@@ -133,7 +133,7 @@ body.light .liquid-glass{
 
 
 /* ================= 页面容器 ================= */
-main{min-height:100%;padding:0 16px calc(130px + env(safe-area-inset-bottom));}
+main{min-height:100%;padding:0 16px calc(100px + env(safe-area-inset-bottom));}
 .view{display:none;}
 .view.active{display:block;}
 /* 只给不含玻璃层的标题做入场，避免 backdrop-filter 元素在父级 opacity 动画里逐帧重建 */
@@ -770,7 +770,7 @@ main.body-box{
   position:fixed;left:0;right:0;bottom:0;
   top:calc(env(safe-area-inset-top) + 10px);
   min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:0 16px calc(140px + env(safe-area-inset-bottom));
+  padding:0 16px calc(100px + env(safe-area-inset-bottom));
   transition:top .26s ease;scrollbar-width:none;
 }
 main.body-box::-webkit-scrollbar{display:none;}
@@ -907,7 +907,17 @@ main.body-box .card{margin-bottom:var(--lg-gap-md);border-radius:var(--card-radi
 .filter-preview::-webkit-scrollbar{display:none;width:0;height:0;}
 .filter-preview.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none;}
 .filter-preview .num-item{width:auto;flex-shrink:0;}
-.filter-preview .num-ball{width:24px;height:24px;border-radius:8px;font-size:11px;}
+.filter-preview .num-ball{
+  width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:600;
+  color:var(--mg-on-color);
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.35),0 2px 6px rgba(0,0,0,.12);
+}
+.filter-preview .num-ball.红色{background:var(--mg-ball-red);}
+.filter-preview .num-ball.蓝色{background:var(--mg-ball-blue);}
+.filter-preview .num-ball.绿色{background:var(--mg-ball-green);}
+body.light .filter-preview .num-ball.红色,
+body.light .filter-preview .num-ball.蓝色,
+body.light .filter-preview .num-ball.绿色{color:var(--mg-on-color);}
 .filter-preview .tag-zodiac{display:none;}
 .zodiac-preview-tag{
   display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:7px;font-size:11px;

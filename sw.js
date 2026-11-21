@@ -1,5 +1,5 @@
 /* sw.js · 应用外壳缓存：首屏离线可用，配置改动后改 CACHE 版本号即可换新 */
-const CACHE = 'liquidglass-v1.7.7';
+const CACHE = 'liquidglass-v1.7.8';
 const ASSETS = [
   './',
   './index.html',
