@@ -343,7 +343,5 @@ const BusinessFilterGroup = {
     BusinessFilterGroup.applySnapshot(groups.filter(g => g.id === currentId)[0] || groups[0]);
     BusinessFilterGroup._persist();
     BusinessFilterGroup._installAutoSync();
-
-    if (typeof ViewFilterGroup !== 'undefined') ViewFilterGroup.render();
   }
 };

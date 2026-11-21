@@ -1253,75 +1253,74 @@ confirmDialog({
 <input type="file" id="wall-file" accept="image/*" style="display:none" />
 
 <!-- 模板层 -->
-<script src="js/business.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/view-settings.js"></script>
-<script src="js/view-search.js"></script>
-<script src="js/view-components.js"></script>
+<script defer src="js/business.js"></script>
+<script defer src="js/ui.js"></script>
+<script defer src="js/view-settings.js"></script>
+<script defer src="js/view-search.js"></script>
+<script defer src="js/view-components.js"></script>
 
 <!-- 迁移层：先注入筛选页结构，再加载依赖缓存的模块 -->
-<script src="js/lg/mg-shell.js"></script>
-<script>MGShell.buildFilterPage();</script>
+<script defer src="js/lg/mg-shell.js"></script>
 
 <!-- 迁移层：核心 → 工具 → 平台 → 数据 -->
-<script src="js/mg/core/config.js"></script>
-<script src="js/mg/core/utils.js"></script>
-<script src="js/mg/platform/web/toast.js"></script>
-<script src="js/mg/platform/web/dom.js"></script>
-<script src="js/mg/data/data-query.js"></script>
-<script src="js/mg/core/state.js"></script>
-<script src="js/mg/core/storage.js"></script>
-<script src="js/mg/platform/web/render.js"></script>
-<script src="js/mg/data/filter.js"></script>
-<script src="js/mg/platform/web/modals/input-modal.js"></script>
-<script src="js/mg/platform/web/modals/confirm-modal.js"></script>
-<script src="js/mg/platform/web/modals/zodiac-stat-modal.js"></script>
-<script src="js/mg/platform/web/modals/unrec-source-modal.js"></script>
+<script defer src="js/mg/core/config.js"></script>
+<script defer src="js/mg/core/utils.js"></script>
+<script defer src="js/mg/platform/web/toast.js"></script>
+<script defer src="js/mg/platform/web/dom.js"></script>
+<script defer src="js/mg/data/data-query.js"></script>
+<script defer src="js/mg/core/state.js"></script>
+<script defer src="js/mg/core/storage.js"></script>
+<script defer src="js/mg/platform/web/render.js"></script>
+<script defer src="js/mg/data/filter.js"></script>
+<script defer src="js/mg/platform/web/modals/input-modal.js"></script>
+<script defer src="js/mg/platform/web/modals/confirm-modal.js"></script>
+<script defer src="js/mg/platform/web/modals/zodiac-stat-modal.js"></script>
+<script defer src="js/mg/platform/web/modals/unrec-source-modal.js"></script>
 
 <!-- 迁移层：业务 -->
-<script src="js/mg/business/business-cross-exclusion.js"></script>
-<script src="js/mg/business/business-main.js"></script>
-<script src="js/mg/business/business-filter-group.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-prediction.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-scores.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-miss.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-zones.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-stats.js"></script>
-<script src="js/mg/business/zodiac/business-zodiac-backtest.js"></script>
-<script src="js/mg/business/business-ultimate.js"></script>
-<script src="js/mg/business/business-giong.js"></script>
-<script src="js/mg/business/sliding-window/business-sliding-window.js"></script>
-<script src="js/mg/business/sliding-window/business-sliding-window-history.js"></script>
-<script src="js/mg/views/view-sliding-window-history.js"></script>
+<script defer src="js/mg/business/business-cross-exclusion.js"></script>
+<script defer src="js/mg/business/business-main.js"></script>
+<script defer src="js/mg/business/business-filter-group.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-prediction.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-scores.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-miss.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-zones.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-stats.js"></script>
+<script defer src="js/mg/business/zodiac/business-zodiac-backtest.js"></script>
+<script defer src="js/mg/business/business-ultimate.js"></script>
+<script defer src="js/mg/business/business-giong.js"></script>
+<script defer src="js/mg/business/sliding-window/business-sliding-window.js"></script>
+<script defer src="js/mg/business/sliding-window/business-sliding-window-history.js"></script>
+<script defer src="js/mg/views/view-sliding-window-history.js"></script>
 
 <!-- 迁移层：视图 -->
-<script src="js/mg/views/view-common.js"></script>
-<script src="js/mg/views/view-filter.js"></script>
-<script src="js/mg/views/view-filter-group.js"></script>
-<script src="js/mg/views/modals/view-batch-modal.js"></script>
-<script src="js/mg/views/view-quick-nav.js"></script>
-<script src="js/mg/views/modals/view-overlap-modal.js"></script>
-<script src="js/mg/views/analysis/view-analysis.js"></script>
-<script src="js/mg/views/analysis/view-analysis-history.js"></script>
-<script src="js/mg/views/analysis/view-analysis-full.js"></script>
-<script src="js/mg/views/analysis/view-analysis-zodiac.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-predict.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-main.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-giong.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-giong-size.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-giong-oddeven.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-giong-wuxing.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-giong-color.js"></script>
-<script src="js/mg/views/zodiac/view-zodiac-ultimate.js"></script>
-<script src="js/mg/views/view-profile.js"></script>
+<script defer src="js/mg/views/view-common.js"></script>
+<script defer src="js/mg/views/view-filter.js"></script>
+<script defer src="js/mg/views/view-filter-group.js"></script>
+<script defer src="js/mg/views/modals/view-batch-modal.js"></script>
+<script defer src="js/mg/views/view-quick-nav.js"></script>
+<script defer src="js/mg/views/modals/view-overlap-modal.js"></script>
+<script defer src="js/mg/views/analysis/view-analysis.js"></script>
+<script defer src="js/mg/views/analysis/view-analysis-history.js"></script>
+<script defer src="js/mg/views/analysis/view-analysis-full.js"></script>
+<script defer src="js/mg/views/analysis/view-analysis-zodiac.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-predict.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-main.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-giong.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-giong-size.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-giong-oddeven.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-giong-wuxing.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-giong-color.js"></script>
+<script defer src="js/mg/views/zodiac/view-zodiac-ultimate.js"></script>
+<script defer src="js/mg/views/view-profile.js"></script>
 
 <!-- 迁移层：事件 + 适配 -->
-<script src="js/mg/event.js"></script>
-<script src="js/lg/mg-bridge.js"></script>
+<script defer src="js/mg/event.js"></script>
+<script defer src="js/lg/mg-bridge.js"></script>
 
 <!-- 入口 -->
-<script src="js/mg/app.js"></script>
-<script src="js/main.js"></script>
+<script defer src="js/mg/app.js"></script>
+<script defer src="js/main.js"></script>
 
 </body>
 </html>

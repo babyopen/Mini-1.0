@@ -18,8 +18,6 @@ async function initApp() {
     Storage.loadSavedFilters();
     // 8. 加载历史记录缓存
     Business.loadHistoryCache();
-    // 9. 渲染方案列表
-    Render.renderFilterList();
     // 10. 初始化快捷导航（主页默认 filter 页签）
     ViewFilter.refreshQuickNav('filter');
     // 10.1 注入主页生肖卡片的"复制已选生肖"按钮（仅主页生肖卡片，不影响其它页面）
@@ -33,8 +31,6 @@ async function initApp() {
     Business.refreshHistory(true);
     // 14. 新增：初始化当前主页临时筛选状态持久化（必须在 renderAll 之前完成恢复）
     Business.initFilterPersistence();
-    // 15. 重新渲染一次以反映从 localStorage 恢复的筛选状态
-    Render.renderAll();
     // 15.1 初始化筛选方案分组（必须在筛选状态恢复之后，默认分组才能拿到完整快照）
     BusinessFilterGroup.init();
     // 16. 隐藏加载遮罩

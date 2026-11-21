@@ -162,4 +162,5 @@
   }
 
   window.MGShell = { buildFilterPage: buildFilterPage };
+  buildFilterPage();
 })();
