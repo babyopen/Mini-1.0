@@ -5,28 +5,26 @@
   var ICONS = {
     lock: 'i-lock',
     mark: 'i-mark',
-    select: 'i-check-all',
     invert: 'i-invert',
     batch: 'i-list',
     clear: 'i-x'
   };
 
   var CARD_BTNS = {
-    zodiac: ['lock', 'mark', 'select', 'invert', 'batch', 'clear'],
-    color: ['lock', 'mark', 'select', 'invert', 'clear'],
-    type: ['lock', 'mark', 'select', 'invert', 'clear'],
-    element: ['lock', 'mark', 'select', 'invert', 'batch', 'clear'],
-    head: ['lock', 'mark', 'select', 'invert', 'clear'],
-    tail: ['lock', 'mark', 'select', 'invert', 'batch', 'clear'],
-    sum: ['lock', 'mark', 'select', 'invert', 'batch', 'clear'],
-    bs: ['lock', 'mark', 'select', 'invert', 'clear'],
-    num: ['lock', 'mark', 'select', 'invert', 'batch', 'clear']
+    zodiac: ['lock', 'mark', 'invert', 'batch', 'clear'],
+    color: ['lock', 'mark', 'invert', 'clear'],
+    type: ['lock', 'mark', 'invert', 'clear'],
+    element: ['lock', 'mark', 'invert', 'batch', 'clear'],
+    head: ['lock', 'mark', 'invert', 'clear'],
+    tail: ['lock', 'mark', 'invert', 'batch', 'clear'],
+    sum: ['lock', 'mark', 'invert', 'batch', 'clear'],
+    bs: ['lock', 'mark', 'invert', 'clear'],
+    num: ['lock', 'mark', 'invert', 'batch', 'clear']
   };
 
   var ACTION = {
     lock: 'lockGroup',
     mark: 'markGroup',
-    select: 'selectGroup',
     invert: 'invertGroup',
     batch: 'batchSelectGroup',
     clear: 'clearGroup'
@@ -35,7 +33,6 @@
   var TITLE = {
     lock: '锁定',
     mark: '标记',
-    select: '全选',
     invert: '反选',
     batch: '批量选择',
     clear: '清除'

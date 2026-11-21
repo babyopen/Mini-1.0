@@ -59,19 +59,6 @@ const EventBinder = {
       });
     }
     
-    // 弹窗键盘监听（移动端键盘弹出时调整弹窗位置）
-    let resizeTimer;
-    function onViewportChange() {
-      if (typeof ViewFilter !== 'undefined' && ViewFilter.adjustModalPosition) {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => ViewFilter.adjustModalPosition(), 100);
-      }
-    }
-    window.addEventListener('resize', onViewportChange);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', onViewportChange);
-    }
-    
     // 分析页面：特码生肖关联选择器change事件（符合分层规范：事件层负责DOM查询）
     const zodiacAnalyzeSelect = document.getElementById('zodiacAnalyzeSelect');
     if(zodiacAnalyzeSelect) {

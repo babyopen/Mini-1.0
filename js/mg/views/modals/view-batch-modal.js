@@ -1,7 +1,7 @@
 /**
  * 视图层：批量选择弹窗（拆分自 view-filter.js，2026-06-05）
  * @namespace ViewBatchModal
- * 包含：adjustModalPosition / showBatchModal / closeBatchModal / confirmBatchSelect
+ * 包含：showBatchModal / closeBatchModal / confirmBatchSelect
  * 依赖：Toast / StateManager / CONFIG / Utils
  *
  * 拆分原则（只新增不破坏）：
@@ -17,40 +17,16 @@ const ViewBatchModal = {
   _batchTargetGroups: [],
 
   /**
-   * 调整弹窗位置（避开键盘）
-   */
-  adjustModalPosition: () => {
-    const modal = document.getElementById('batchModal');
-    const container = modal?.querySelector('.batch-modal-content');
-    const input = document.getElementById('batchModalInput');
-    if (!modal?.classList.contains('show')) return;
-    if (!container || !input) return;
-
-    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const inputRect = input.getBoundingClientRect();
-    const inputBottom = inputRect.bottom;
-
-    if (inputBottom > viewportHeight - 20) {
-      const offset = inputBottom - (viewportHeight - 20);
-      const maxOffset = container.offsetHeight * 0.6;
-      const translateY = -Math.min(offset, maxOffset);
-      container.style.transform = `translateY(${translateY}px)`;
-    } else {
-      container.style.transform = 'translateY(0)';
-    }
-  },
-
-  /**
    * 显示批量选择弹窗
    * @param {string} groups - 逗号分隔的组名
    */
   showBatchModal: (groups) => {
-    const modal = document.getElementById('batchModal');
+    const dialog = document.getElementById('batchModal');
+    const mask = document.getElementById('batch-mask');
     const input = document.getElementById('batchModalInput');
     const title = document.getElementById('batchModalTitle');
-    const hint = modal?.querySelector('.batch-modal-hint');
-    const container = modal?.querySelector('.batch-modal-content');
-    if (!modal || !input) return;
+    const hint = document.getElementById('batchModalHint');
+    if (!dialog || !input) return;
     ViewFilter._batchTargetGroups = groups ? groups.split(',') : [];
     // 根据分组设置不同的提示
     const group = ViewFilter._batchTargetGroups[0];
@@ -92,25 +68,26 @@ const ViewBatchModal = {
       if (hint) hint.textContent = '输入要选择的名称，支持多种分隔符';
       input.placeholder = placeholder;
     }
-    modal.classList.add('show');
-    if (container) container.style.transform = 'translateY(0)';
+    mask?.classList.add('show');
+    dialog.classList.add('show');
+    dialog.setAttribute('aria-hidden', 'false');
     input.value = '';
-    setTimeout(() => {
-      input.focus();
-      setTimeout(() => ViewFilter.adjustModalPosition(), 150);
-    }, 100);
+    setTimeout(() => input.focus(), 240);
   },
 
   /**
    * 关闭批量选择弹窗
    */
   closeBatchModal: () => {
-    const modal = document.getElementById('batchModal');
+    const dialog = document.getElementById('batchModal');
+    const mask = document.getElementById('batch-mask');
     const input = document.getElementById('batchModalInput');
-    const container = modal?.querySelector('.batch-modal-content');
     if (input) input.blur();
-    if (modal) modal.classList.remove('show');
-    if (container) container.style.transform = 'translateY(0)';
+    if (dialog) {
+      dialog.classList.remove('show');
+      dialog.setAttribute('aria-hidden', 'true');
+    }
+    if (mask) mask.classList.remove('show');
   },
 
   /**

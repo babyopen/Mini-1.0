@@ -835,7 +835,7 @@
         <div class="pv-label">状态 .is-disabled / .is-loading</div>
         <div class="pv-row">
           <button class="btn secondary is-disabled" type="button">禁用</button>
-          <button class="btn secondary is-loading" type="button">加载中</button>
+          <button class="btn secondary is-loading" type="button" aria-busy="true">加载中</button>
         </div>
       
         <div class="pv-doc">
@@ -845,7 +845,7 @@
           </div>
           <div class="pv-doc-body">
             <pre class="pv-code"><code>&lt;button class="btn is-disabled"&gt;禁用&lt;/button&gt;
-&lt;button class="btn is-loading"&gt;加载中&lt;/button&gt;</code></pre>
+&lt;button class="btn is-loading" aria-busy="true"&gt;加载中&lt;/button&gt;</code></pre>
             <div class="pv-note">禁用：.is-disabled（不拦截点击，需业务自己判断）。加载：.is-loading，自动出转圈，点击应自行忽略。</div>
           </div>
         </div>      </div>
@@ -1201,20 +1201,16 @@ confirmDialog({
 </div>
 
 <!-- 批量选择弹窗 -->
-<div class="batch-modal" id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle">
-  <div class="batch-modal-overlay" data-action="closeBatchModal"></div>
-  <div class="batch-modal-content">
-    <div class="batch-modal-header">
-      <h3 id="batchModalTitle">批量选择</h3>
-      <button class="sheet-close" type="button" data-action="closeBatchModal" aria-label="关闭">
-        <svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
-      </button>
-    </div>
-    <div class="batch-modal-body">
-      <p class="batch-modal-hint">支持多种分隔符：逗号、顿号、空格、换行、点、斜杠、连字符等</p>
-      <input class="batch-modal-input" id="batchModalInput" type="text" placeholder="例如：马 牛 虎" autocomplete="off">
-      <button class="btn primary batch-modal-btn" type="button" data-action="confirmBatchSelect">确认选择</button>
-    </div>
+<div class="dlg-mask" id="batch-mask" data-action="closeBatchModal"></div>
+<div class="dlg" id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchModalTitle" aria-hidden="true" tabindex="-1">
+  <h3 id="batchModalTitle">批量选择</h3>
+  <p id="batchModalHint">输入要选择的名称，支持多种分隔符</p>
+  <div class="dlg-field show">
+    <input id="batchModalInput" type="text" placeholder="例如：马 牛 虎" autocomplete="off">
+  </div>
+  <div class="dlg-foot">
+    <button class="btn ghost" type="button" data-action="closeBatchModal">取消</button>
+    <button class="btn primary" type="button" data-action="confirmBatchSelect">确认选择</button>
   </div>
 </div>
 
